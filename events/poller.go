@@ -41,10 +41,9 @@ func (p *Poller) Poll(ctx context.Context, interval time.Duration) error {
 			err := p.PollUsers(ctx)
 			if err != nil {
 				log.Println("Polling error:", err)
-				time.Sleep(interval * 2)
 			}
 		case <-ctx.Done():
-			log.Println("Finishing...")
+			log.Println("Poller finishing...")
 			return ctx.Err()
 		}
 	}
@@ -101,7 +100,7 @@ func (p *Poller) PollUser(ctx context.Context, user db.User) error {
 	// TODO add an underlying caching transport
 	client := github.NewClient(nil)
 
-	newEvents, pollInterval, err := listNewEvents(ctx, client, user.GitHubUser, user.EventLastCreatedAt)
+	newEvents, pollInterval, err := ListNewEvents(ctx, client, user.GitHubUser, user.EventLastCreatedAt)
 	if err != nil {
 		return err
 	}
@@ -114,7 +113,7 @@ func (p *Poller) PollUser(ctx context.Context, user db.User) error {
 		}
 	}
 
-	notifyEvents := filterEvents(filters, newEvents)
+	notifyEvents := FilterEvents(filters, newEvents)
 
 	// Send notifications.
 	for _, event := range notifyEvents {

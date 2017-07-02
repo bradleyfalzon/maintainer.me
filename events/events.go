@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func listNewEvents(ctx context.Context, client *github.Client, githubUser string, lastCreatedAt time.Time) (events []*github.Event, pollInterval time.Duration, err error) {
+func ListNewEvents(ctx context.Context, client *github.Client, githubUser string, lastCreatedAt time.Time) (events []*github.Event, pollInterval time.Duration, err error) {
 	opt := github.ListOptions{Page: 1}
 
 ListEvents:
@@ -58,7 +58,7 @@ func haveObserved(observed, query time.Time) bool {
 	return !observed.IsZero() && (query.Before(observed) || query.Equal(observed))
 }
 
-func filterEvents(filters []ghfilter.Filter, events []*github.Event) []*github.Event {
+func FilterEvents(filters []ghfilter.Filter, events []*github.Event) []*github.Event {
 	var filtered []*github.Event
 	for _, event := range events {
 		for _, filter := range filters {
