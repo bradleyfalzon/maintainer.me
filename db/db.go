@@ -9,7 +9,7 @@ import (
 
 // DB represents a database.
 type DB interface {
-	// UsersAndFilters returns a list of active
+	// Users returns a list of active users that need are scheduled to be polled.
 	Users() ([]User, error)
 	// UsersFilters returns all filters for a User ID.
 	UsersFilters(userID int) ([]ghfilter.Filter, error)
@@ -29,7 +29,7 @@ type User struct {
 	//GitHubToken []byte `db:"github_token"` // nil if none assigned to user
 
 	EventLastCreatedAt time.Time // the latest created at event for the customer
-	EventNextUpdate    time.Time // time when the next update should occur
+	EventNextPoll      time.Time // time when the next update should occur
 	//ListEventsETag          string    // list events etag used for caching - actually, i wouldn't need to store it
 }
 
@@ -45,6 +45,7 @@ func NewSQLDB() *SQLDB {
 
 // Users implements the DB interface.
 func (db *SQLDB) Users() ([]User, error) {
+	// TODO only select users where next poll is before now.
 	return []User{
 		{
 			ID:       1,
@@ -88,7 +89,7 @@ func (db *SQLDB) UsersFilters(userID int) ([]ghfilter.Filter, error) {
 }
 
 // SetUsersPollResult implements the DB interface.
-func (db *SQLDB) SetUsersPollResult(userID int, lastCreatedAt, nextUpdate time.Time) error {
+func (db *SQLDB) SetUsersPollResult(userID int, lastCreatedAt, nextPoll time.Time) error {
 	// TODO do
 	return nil
 }

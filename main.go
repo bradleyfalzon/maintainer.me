@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/bradleyfalzon/maintainer.me/db"
+	"github.com/bradleyfalzon/maintainer.me/events"
 	"github.com/bradleyfalzon/maintainer.me/notifier"
-	"github.com/bradleyfalzon/maintainer.me/poller"
 )
 
 func main() {
@@ -29,7 +29,7 @@ func run() error {
 	notifier := &notifier.Writer{Writer: os.Stdout}
 	db := db.NewSQLDB()
 
-	poller := poller.NewPoller(db, notifier)
+	poller := events.NewPoller(db, notifier)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
