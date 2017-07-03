@@ -12,10 +12,11 @@ import (
 
 type Web struct {
 	db        db.DB
+	rt        http.RoundTripper
 	templates *template.Template
 }
 
-func NewWeb(db db.DB) (*Web, error) {
+func NewWeb(db db.DB, rt http.RoundTripper) (*Web, error) {
 	templates, err := template.ParseGlob("web/templates/*.tmpl")
 	if err != nil {
 		return nil, err
@@ -23,6 +24,7 @@ func NewWeb(db db.DB) (*Web, error) {
 
 	return &Web{
 		db:        db,
+		rt:        rt,
 		templates: templates,
 	}, nil
 }
@@ -41,7 +43,10 @@ func (web *Web) HomeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := github.NewClient(nil)
+	httpClient := &http.Client{
+		Transport: web.rt,
+	}
+	client := github.NewClient(httpClient)
 
 	allEvents, _, err := events.ListNewEvents(r.Context(), client, user.GitHubUser, user.EventLastCreatedAt)
 	if err != nil {

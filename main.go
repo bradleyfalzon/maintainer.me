@@ -13,6 +13,8 @@ import (
 	"github.com/bradleyfalzon/maintainer.me/events"
 	"github.com/bradleyfalzon/maintainer.me/notifier"
 	"github.com/bradleyfalzon/maintainer.me/web"
+	"github.com/gregjones/httpcache"
+	"github.com/gregjones/httpcache/diskcache"
 	"github.com/pressly/chi"
 	"github.com/pressly/chi/middleware"
 )
@@ -33,7 +35,9 @@ func run() error {
 	notifier := &notifier.Writer{Writer: os.Stdout}
 	db := db.NewSQLDB()
 
-	poller := events.NewPoller(db, notifier)
+	rt := httpcache.NewTransport(diskcache.New("/tmp"))
+
+	poller := events.NewPoller(db, notifier, rt)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -51,7 +55,7 @@ func run() error {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.NoCache)
 
-	web, err := web.NewWeb(db)
+	web, err := web.NewWeb(db, rt)
 	if err != nil {
 		return err
 	}

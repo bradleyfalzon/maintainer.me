@@ -3,6 +3,7 @@ package events
 import (
 	"context"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/bradleyfalzon/maintainer.me/db"
@@ -16,6 +17,7 @@ var githubBaseURL = "https://api.github.com/"
 type Poller struct {
 	db       db.DB
 	notifier Notifier
+	rt       http.RoundTripper
 }
 
 // Notifier sends a notification about a GitHub Event.
@@ -23,10 +25,11 @@ type Notifier interface {
 	Notify(event Event) error
 }
 
-func NewPoller(db db.DB, notifier Notifier) *Poller {
+func NewPoller(db db.DB, notifier Notifier, rt http.RoundTripper) *Poller {
 	return &Poller{
 		db:       db,
 		notifier: notifier,
+		rt:       rt,
 	}
 }
 
@@ -102,7 +105,10 @@ func (p *Poller) PollUser(ctx context.Context, user db.User) error {
 	//}
 
 	// TODO add an underlying caching transport
-	client := github.NewClient(nil)
+	httpClient := &http.Client{
+		Transport: p.rt,
+	}
+	client := github.NewClient(httpClient)
 
 	events, pollInterval, err := ListNewEvents(ctx, client, user.GitHubUser, user.EventLastCreatedAt)
 	if err != nil {
