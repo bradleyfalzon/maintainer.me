@@ -107,17 +107,32 @@ func ParseEvent(ghe *github.Event) (Event, error) {
 		e.Action = "commented"
 		e.Subject = p.Comment.GetCommitID()
 		e.Body = p.Comment.GetBody()
-		e.Title = fmt.Sprintf("[%s] %s %s on %s", p.Repo.GetName(), e.Actor, e.Action, e.Subject)
+		e.Title = fmt.Sprintf("[%s] %s %s on: %s", ghe.Repo.GetName(), e.Actor, e.Action, e.Subject)
 	case *github.CreateEvent:
 	case *github.DeleteEvent:
 	case *github.DeploymentEvent:
 	case *github.DeploymentStatusEvent:
 	case *github.ForkEvent:
 	case *github.GollumEvent:
+		e.Actor = ghe.Actor.GetLogin()
+		e.Action = "edited"
+		e.Subject = ghe.Repo.GetName()
+		//e.Body = p.Issue.GetBody()
+		e.Title = fmt.Sprintf("[%s] %s %s wiki on: %s", ghe.Repo.GetName(), e.Actor, e.Action, e.Subject)
 	case *github.InstallationEvent:
 	case *github.InstallationRepositoriesEvent:
 	case *github.IssueCommentEvent:
+		e.Actor = ghe.Actor.GetLogin()
+		e.Action = "commented"
+		e.Subject = p.Issue.GetTitle()
+		e.Body = p.Comment.GetBody()
+		e.Title = fmt.Sprintf("[%s] %s %s on: %s", ghe.Repo.GetName(), e.Actor, e.Action, e.Subject)
 	case *github.IssuesEvent:
+		e.Actor = ghe.Actor.GetLogin()
+		e.Action = "opened"
+		e.Subject = p.Issue.GetTitle()
+		e.Body = p.Issue.GetBody()
+		e.Title = fmt.Sprintf("[%s] %s %s: %s", ghe.Repo.GetName(), e.Actor, e.Action, e.Subject)
 	case *github.LabelEvent:
 	case *github.MemberEvent:
 	case *github.MembershipEvent:
@@ -131,9 +146,19 @@ func ParseEvent(ghe *github.Event) (Event, error) {
 	case *github.ProjectColumnEvent:
 	case *github.PublicEvent:
 	case *github.PullRequestEvent:
+		e.Actor = ghe.Actor.GetLogin()
+		e.Action = p.GetAction()
+		e.Subject = strconv.Itoa(p.GetNumber())
+		e.Body = p.PullRequest.GetBody()
+		e.Title = fmt.Sprintf("[%s] %s %s #%s: %s", ghe.Repo.GetName(), e.Actor, e.Action, e.Subject, p.PullRequest.GetTitle())
 	case *github.PullRequestReviewEvent:
 	case *github.PullRequestReviewCommentEvent:
 	case *github.PushEvent:
+		e.Actor = ghe.Actor.GetLogin()
+		e.Action = "pushed"
+		e.Subject = fmt.Sprintf("%s %s", ghe.Repo.GetName(), p.GetRef())
+		//e.Body = p.Issue.GetBody()
+		e.Title = fmt.Sprintf("[%s] %s %s %d commits to %s", ghe.Repo.GetName(), e.Actor, e.Action, len(p.Commits), e.Subject)
 	case *github.ReleaseEvent:
 	case *github.RepositoryEvent:
 	case *github.StatusEvent:

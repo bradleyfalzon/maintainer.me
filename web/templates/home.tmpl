@@ -1,1 +1,22 @@
-Hello home!
+{{ template "header" . }}
+
+<table>
+	<thead>
+        <tr>
+            <td>Type</td>
+            <td>Event</td>
+            <td>Excluded</td>
+        </tr>
+	</thead>
+	<tbody>
+		{{ range .Events }}
+			<tr>
+				<td>{{ .Type }}</td>
+				<td>{{ .String }}</td>
+				<td>{{ .Excluded }}</td>
+			</tr>
+		{{ end }}
+	</tbody>
+</table>
+
+{{ template "footer" . }}
