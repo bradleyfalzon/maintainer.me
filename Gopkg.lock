@@ -8,10 +8,22 @@
   revision = "588f9345fe43ceb865e232aed1620e9069a37b55"
 
 [[projects]]
+  name = "github.com/go-chi/chi"
+  packages = ["."]
+  revision = "967844826e58cf31213a7dfb82455d242ad85101"
+  version = "v3.0.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/golang/protobuf"
   packages = ["proto"]
   revision = "6a1fa9404c0aebf36c879bc50152edcc953910d2"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/google/btree"
+  packages = ["."]
+  revision = "316fb6d3f031ae8f4d457c6c5186b9e3ded70435"
 
 [[projects]]
   branch = "master"
@@ -26,10 +38,34 @@
   revision = "53e6ce116135b80d037921a7fdd5138cf32d7a8a"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/gregjones/httpcache"
+  packages = [".","diskcache"]
+  revision = "0d2297f241a3503b4d464cd434e6d1490ec76e9a"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/petar/GoLLRB"
+  packages = ["llrb"]
+  revision = "53be0d36a84c2a886ca057d34b6aa4468df9ccb4"
+
+[[projects]]
+  name = "github.com/peterbourgon/diskv"
+  packages = ["."]
+  revision = "937c5a91d7fb1477fa6d2bb71410b2ae7a0f2143"
+  version = "v2.0.0"
+
+[[projects]]
   name = "github.com/pkg/errors"
   packages = ["."]
   revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
   version = "v0.8.0"
+
+[[projects]]
+  name = "github.com/pressly/chi"
+  packages = [".","middleware"]
+  revision = "967844826e58cf31213a7dfb82455d242ad85101"
+  version = "v3.0.0"
 
 [[projects]]
   branch = "master"
@@ -46,6 +82,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "bf167ee931ca63e458345d1df1431a4f78f129db1081cad03714e563db95e0b3"
+  inputs-digest = "ca8e892b00abc1c53c02ec9091d6f663ac5f9ea7a369a44ba9c6c0b2f6a9cb36"
   solver-name = "gps-cdcl"
   solver-version = 1
