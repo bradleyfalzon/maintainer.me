@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/bradleyfalzon/maintainer.me/db"
-	"github.com/bradleyfalzon/maintainer.me/notifier"
 	"github.com/google/go-github/github"
 )
 
@@ -16,10 +15,15 @@ var githubBaseURL = "https://api.github.com/"
 
 type Poller struct {
 	db       db.DB
-	notifier notifier.Notifier
+	notifier Notifier
 }
 
-func NewPoller(db db.DB, notifier notifier.Notifier) *Poller {
+// Notifier sends a notification about a GitHub Event.
+type Notifier interface {
+	Notify(event Event) error
+}
+
+func NewPoller(db db.DB, notifier Notifier) *Poller {
 	return &Poller{
 		db:       db,
 		notifier: notifier,
@@ -107,7 +111,7 @@ func (p *Poller) PollUser(ctx context.Context, user db.User) error {
 
 	if len(newEvents) > 0 {
 		// Mark all events as read from here.
-		err := p.db.SetUsersPollResult(user.ID, newEvents[0].GetCreatedAt(), time.Now().Add(pollInterval))
+		err := p.db.SetUsersPollResult(user.ID, newEvents[0].CreatedAt, time.Now().Add(pollInterval))
 		if err != nil {
 			return err
 		}

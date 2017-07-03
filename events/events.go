@@ -2,6 +2,7 @@ package events
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strconv"
 	"time"
@@ -11,7 +12,21 @@ import (
 	"github.com/pkg/errors"
 )
 
-func ListNewEvents(ctx context.Context, client *github.Client, githubUser string, lastCreatedAt time.Time) (events []*github.Event, pollInterval time.Duration, err error) {
+type Event struct {
+	RawEvent  *github.Event
+	CreatedAt time.Time // CreatedAt is the time the event was created.
+	Type      string    // Type such as "CommitCommentEvent".
+	Public    bool      // Public is whether GitHub event was public.
+
+	Actor   string // Actor is the person who did an action, such as "bradleyfalzon".
+	Action  string // Action is the action performed on a subject, such as "commented".
+	Subject string // Subject is something that an action was performed on, such as "golang/go".
+
+	Title string // Title is a short description of the event, such as "[golang/go] bradleyfalzon commented on abcdef1234"
+	Body  string // Body contains more context and may be blank.
+}
+
+func ListNewEvents(ctx context.Context, client *github.Client, githubUser string, lastCreatedAt time.Time) (events []Event, pollInterval time.Duration, err error) {
 	opt := github.ListOptions{Page: 1}
 
 ListEvents:
@@ -43,7 +58,12 @@ ListEvents:
 				// have also been observed.
 				break ListEvents
 			}
-			events = append(events, event)
+
+			parsedEvent, err := ParseEvent(event)
+			if err != nil {
+				return nil, 0, err
+			}
+			events = append(events, parsedEvent)
 		}
 
 		if response.NextPage == 0 {
@@ -58,15 +78,74 @@ func haveObserved(observed, query time.Time) bool {
 	return !observed.IsZero() && (query.Before(observed) || query.Equal(observed))
 }
 
-func FilterEvents(filters []ghfilter.Filter, events []*github.Event) []*github.Event {
-	var filtered []*github.Event
+func FilterEvents(filters []ghfilter.Filter, events []Event) []Event {
+	var filtered []Event
 	for _, event := range events {
 		for _, filter := range filters {
-			if filter.Matches(event) {
+			if filter.Matches(event.RawEvent) {
 				filtered = append(filtered, event)
 				break
 			}
 		}
 	}
 	return filtered
+}
+
+func ParseEvent(ghe *github.Event) (Event, error) {
+	payload, err := ghe.ParsePayload()
+	if err != nil {
+		return Event{}, errors.Wrap(err, "could not parse event payload")
+	}
+
+	e := Event{
+		RawEvent:  ghe,
+		CreatedAt: ghe.GetCreatedAt(),
+		Type:      ghe.GetType(),
+		Public:    ghe.GetPublic(),
+	}
+	switch p := payload.(type) {
+	case *github.CommitCommentEvent:
+		e.Actor = ghe.Actor.GetLogin()
+		e.Action = "commented"
+		e.Subject = p.Comment.GetCommitID()
+		e.Body = p.Comment.GetBody()
+		e.Title = fmt.Sprintf("[%s] %s %s on %s", p.Repo.GetName(), e.Actor, e.Action, e.Subject)
+	case *github.CreateEvent:
+	case *github.DeleteEvent:
+	case *github.DeploymentEvent:
+	case *github.DeploymentStatusEvent:
+	case *github.ForkEvent:
+	case *github.GollumEvent:
+	case *github.InstallationEvent:
+	case *github.InstallationRepositoriesEvent:
+	case *github.IssueCommentEvent:
+	case *github.IssuesEvent:
+	case *github.LabelEvent:
+	case *github.MemberEvent:
+	case *github.MembershipEvent:
+	case *github.MilestoneEvent:
+	case *github.OrganizationEvent:
+	case *github.OrgBlockEvent:
+	case *github.PageBuildEvent:
+	case *github.PingEvent:
+	case *github.ProjectEvent:
+	case *github.ProjectCardEvent:
+	case *github.ProjectColumnEvent:
+	case *github.PublicEvent:
+	case *github.PullRequestEvent:
+	case *github.PullRequestReviewEvent:
+	case *github.PullRequestReviewCommentEvent:
+	case *github.PushEvent:
+	case *github.ReleaseEvent:
+	case *github.RepositoryEvent:
+	case *github.StatusEvent:
+	case *github.TeamEvent:
+	case *github.TeamAddEvent:
+	case *github.WatchEvent:
+	}
+	return e, nil
+}
+
+func (e *Event) String() string {
+	return e.Title
 }

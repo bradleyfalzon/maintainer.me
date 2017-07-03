@@ -53,8 +53,8 @@ func (web *Web) HomeHandler(w http.ResponseWriter, r *http.Request) {
 
 	page := struct {
 		Title    string
-		Events   []*github.Event
-		Filtered []*github.Event
+		Events   []events.Event
+		Filtered []events.Event
 	}{"Maintainer.Me", newEvents, filteredEvents}
 
 	if err := web.templates.ExecuteTemplate(w, "home.tmpl", page); err != nil {
