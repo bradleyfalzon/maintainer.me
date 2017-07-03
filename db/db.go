@@ -52,7 +52,8 @@ func (db *SQLDB) Users() ([]User, error) {
 			Email:    "",
 			GitHubID: 1,
 			//GitHubToken: []
-			GitHubUser: "bradleyfalzon",
+			GitHubUser:         "bradleyfalzon",
+			EventLastCreatedAt: time.Date(2017, 07, 03, 0, 0, 0, 0, time.UTC),
 		},
 	}, nil
 }

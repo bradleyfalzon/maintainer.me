@@ -104,23 +104,26 @@ func (p *Poller) PollUser(ctx context.Context, user db.User) error {
 	// TODO add an underlying caching transport
 	client := github.NewClient(nil)
 
-	newEvents, pollInterval, err := ListNewEvents(ctx, client, user.GitHubUser, user.EventLastCreatedAt)
+	events, pollInterval, err := ListNewEvents(ctx, client, user.GitHubUser, user.EventLastCreatedAt)
 	if err != nil {
 		return err
 	}
 
-	if len(newEvents) > 0 {
+	if len(events) > 0 {
 		// Mark all events as read from here.
-		err := p.db.SetUsersPollResult(user.ID, newEvents[0].CreatedAt, time.Now().Add(pollInterval))
+		err := p.db.SetUsersPollResult(user.ID, events[0].CreatedAt, time.Now().Add(pollInterval))
 		if err != nil {
 			return err
 		}
 	}
 
-	notifyEvents := FilterEvents(filters, newEvents)
+	events.Filter(filters)
 
 	// Send notifications.
-	for _, event := range notifyEvents {
+	for _, event := range events {
+		if event.Excluded {
+			continue
+		}
 		if err = p.notifier.Notify(event); err != nil {
 			return err
 		}

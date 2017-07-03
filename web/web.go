@@ -43,19 +43,17 @@ func (web *Web) HomeHandler(w http.ResponseWriter, r *http.Request) {
 
 	client := github.NewClient(nil)
 
-	newEvents, _, err := events.ListNewEvents(r.Context(), client, user.GitHubUser, user.EventLastCreatedAt)
+	allEvents, _, err := events.ListNewEvents(r.Context(), client, user.GitHubUser, user.EventLastCreatedAt)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-
-	filteredEvents := events.FilterEvents(filters, newEvents)
+	allEvents.Filter(filters)
 
 	page := struct {
-		Title    string
-		Events   []events.Event
-		Filtered []events.Event
-	}{"Maintainer.Me", newEvents, filteredEvents}
+		Title  string
+		Events events.Events
+	}{"Maintainer.Me", allEvents}
 
 	if err := web.templates.ExecuteTemplate(w, "home.tmpl", page); err != nil {
 		log.Println(err)

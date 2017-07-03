@@ -12,21 +12,9 @@ import (
 	"github.com/pkg/errors"
 )
 
-type Event struct {
-	RawEvent  *github.Event
-	CreatedAt time.Time // CreatedAt is the time the event was created.
-	Type      string    // Type such as "CommitCommentEvent".
-	Public    bool      // Public is whether GitHub event was public.
+type Events []Event
 
-	Actor   string // Actor is the person who did an action, such as "bradleyfalzon".
-	Action  string // Action is the action performed on a subject, such as "commented".
-	Subject string // Subject is something that an action was performed on, such as "golang/go".
-
-	Title string // Title is a short description of the event, such as "[golang/go] bradleyfalzon commented on abcdef1234"
-	Body  string // Body contains more context and may be blank.
-}
-
-func ListNewEvents(ctx context.Context, client *github.Client, githubUser string, lastCreatedAt time.Time) (events []Event, pollInterval time.Duration, err error) {
+func ListNewEvents(ctx context.Context, client *github.Client, githubUser string, lastCreatedAt time.Time) (events Events, pollInterval time.Duration, err error) {
 	opt := github.ListOptions{Page: 1}
 
 ListEvents:
@@ -78,17 +66,27 @@ func haveObserved(observed, query time.Time) bool {
 	return !observed.IsZero() && (query.Before(observed) || query.Equal(observed))
 }
 
-func FilterEvents(filters []ghfilter.Filter, events []Event) []Event {
-	var filtered []Event
-	for _, event := range events {
-		for _, filter := range filters {
-			if filter.Matches(event.RawEvent) {
-				filtered = append(filtered, event)
-				break
-			}
-		}
+func (e Events) Filter(filters []ghfilter.Filter) {
+	for _, event := range e {
+		event.Filter(filters)
 	}
-	return filtered
+}
+
+type Event struct {
+	RawEvent  *github.Event
+	CreatedAt time.Time // CreatedAt is the time the event was created.
+	Type      string    // Type such as "CommitCommentEvent".
+	Public    bool      // Public is whether GitHub event was public.
+
+	// Excluded is true when an event has been filtered and should be excluded.
+	Excluded bool
+
+	Actor   string // Actor is the person who did an action, such as "bradleyfalzon".
+	Action  string // Action is the action performed on a subject, such as "commented".
+	Subject string // Subject is something that an action was performed on, such as "golang/go".
+
+	Title string // Title is a short description of the event, such as "[golang/go] bradleyfalzon commented on abcdef1234"
+	Body  string // Body contains more context and may be blank.
 }
 
 func ParseEvent(ghe *github.Event) (Event, error) {
@@ -148,4 +146,14 @@ func ParseEvent(ghe *github.Event) (Event, error) {
 
 func (e *Event) String() string {
 	return e.Title
+}
+
+func (e *Event) Filter(filters []ghfilter.Filter) {
+	for _, filter := range filters {
+		if filter.Matches(e.RawEvent) {
+			e.Excluded = false
+			return
+		}
+	}
+	e.Excluded = true // Event did not match a filter.
 }
