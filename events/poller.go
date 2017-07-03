@@ -22,7 +22,7 @@ type Poller struct {
 
 // Notifier sends a notification about a GitHub Event.
 type Notifier interface {
-	Notify(event Event) error
+	Notify(event *Event) error
 }
 
 func NewPoller(db db.DB, notifier Notifier, rt http.RoundTripper) *Poller {

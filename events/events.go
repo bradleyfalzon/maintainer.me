@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-type Events []Event
+type Events []*Event
 
 func ListNewEvents(ctx context.Context, client *github.Client, githubUser string, lastCreatedAt time.Time) (events Events, pollInterval time.Duration, err error) {
 	opt := github.ListOptions{Page: 1}
@@ -89,13 +89,13 @@ type Event struct {
 	Body  string // Body contains more context and may be blank.
 }
 
-func ParseEvent(ghe *github.Event) (Event, error) {
+func ParseEvent(ghe *github.Event) (*Event, error) {
 	payload, err := ghe.ParsePayload()
 	if err != nil {
-		return Event{}, errors.Wrap(err, "could not parse event payload")
+		return nil, errors.Wrap(err, "could not parse event payload")
 	}
 
-	e := Event{
+	e := &Event{
 		RawEvent:  ghe,
 		CreatedAt: ghe.GetCreatedAt(),
 		Type:      ghe.GetType(),
@@ -175,6 +175,7 @@ func (e *Event) String() string {
 
 func (e *Event) Filter(filters []ghfilter.Filter) {
 	for _, filter := range filters {
+		log.Println("checking match", e.CreatedAt, e.Type, filter.Matches(e.RawEvent))
 		if filter.Matches(e.RawEvent) {
 			e.Excluded = false
 			return

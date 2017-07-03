@@ -15,7 +15,7 @@ type Writer struct {
 var _ events.Notifier = &Writer{}
 
 // Notify implements the Notifier interface.
-func (w *Writer) Notify(event events.Event) error {
+func (w *Writer) Notify(event *events.Event) error {
 	_, err := fmt.Fprintf(w.Writer, "NOTIFY: %q\n", event.String())
 	return err
 }
