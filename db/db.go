@@ -73,7 +73,7 @@ func (db *SQLDB) UsersFilters(userID int) ([]ghfilter.Filter, error) {
 		},
 		{
 			Conditions: []ghfilter.Condition{
-				{Type: "IssuesEvent"},
+				{Type: "IssuesEvent", PayloadAction: "opened"},
 			},
 		},
 		{

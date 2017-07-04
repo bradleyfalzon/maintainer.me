@@ -107,52 +107,92 @@ func ParseEvent(ghe *github.Event) (*Event, error) {
 		e.Action = "commented"
 		e.Subject = p.Comment.GetCommitID()
 		e.Body = p.Comment.GetBody()
-		e.Title = fmt.Sprintf("[%s] %s %s on: %s", ghe.Repo.GetName(), e.Actor, e.Action, e.Subject)
+		e.Title = fmt.Sprintf("[%s] %s %s on %s", ghe.Repo.GetName(), e.Actor, e.Action, e.Subject)
 	case *github.CreateEvent:
+		e.Actor = ghe.Actor.GetLogin()
+		e.Action = "created " + p.GetRefType()
+		e.Subject = p.GetRef()
+		if e.Subject == "" {
+			e.Subject = ghe.Repo.GetName()
+		}
+		e.Title = fmt.Sprintf("[%s] %s %s %s", ghe.Repo.GetName(), e.Actor, e.Action, e.Subject)
 	case *github.DeleteEvent:
+		// TODO
 	case *github.DeploymentEvent:
+		// TODO
 	case *github.DeploymentStatusEvent:
+		// TODO
 	case *github.ForkEvent:
+		e.Actor = ghe.Actor.GetLogin()
+		e.Action = "forked"
+		e.Subject = ghe.Repo.GetName()
+		e.Title = fmt.Sprintf("[%s] %s %s repository", ghe.Repo.GetName(), e.Actor, e.Action)
 	case *github.GollumEvent:
 		e.Actor = ghe.Actor.GetLogin()
 		e.Action = "edited"
 		e.Subject = ghe.Repo.GetName()
 		//e.Body = p.Issue.GetBody()
-		e.Title = fmt.Sprintf("[%s] %s %s wiki on: %s", ghe.Repo.GetName(), e.Actor, e.Action, e.Subject)
+		e.Title = fmt.Sprintf("[%s] %s %s wiki on %s", ghe.Repo.GetName(), e.Actor, e.Action, e.Subject)
 	case *github.InstallationEvent:
+		// TODO
 	case *github.InstallationRepositoriesEvent:
+		// TODO
 	case *github.IssueCommentEvent:
 		e.Actor = ghe.Actor.GetLogin()
-		e.Action = "commented"
-		e.Subject = p.Issue.GetTitle()
+		e.Action = p.GetAction()
+		var verb string
+		switch p.GetAction() {
+		case "created":
+			verb = "commented on"
+		case "edited comment in":
+			verb = "edited comment in"
+		case "deleted":
+			verb = "deleted comment in"
+		default:
+		}
+		e.Subject = fmt.Sprintf("%s (#%d)", p.Issue.GetTitle(), p.Issue.GetNumber())
 		e.Body = p.Comment.GetBody()
-		e.Title = fmt.Sprintf("[%s] %s %s on: %s", ghe.Repo.GetName(), e.Actor, e.Action, e.Subject)
+		e.Title = fmt.Sprintf("[%s] %s %s %s", ghe.Repo.GetName(), e.Actor, verb, e.Subject)
 	case *github.IssuesEvent:
 		e.Actor = ghe.Actor.GetLogin()
-		e.Action = "opened"
-		e.Subject = p.Issue.GetTitle()
+		e.Action = p.GetAction()
+		e.Subject = fmt.Sprintf("%s (#%d)", p.Issue.GetTitle(), p.Issue.GetNumber())
 		e.Body = p.Issue.GetBody()
-		e.Title = fmt.Sprintf("[%s] %s %s: %s", ghe.Repo.GetName(), e.Actor, e.Action, e.Subject)
+		e.Title = fmt.Sprintf("[%s] %s %s %s", ghe.Repo.GetName(), e.Actor, e.Action, e.Subject)
 	case *github.LabelEvent:
+		// TODO
 	case *github.MemberEvent:
+		// TODO
 	case *github.MembershipEvent:
+		// TODO
 	case *github.MilestoneEvent:
+		// TODO
 	case *github.OrganizationEvent:
+		// TODO
 	case *github.OrgBlockEvent:
+		// TODO
 	case *github.PageBuildEvent:
+		// TODO
 	case *github.PingEvent:
+		// TODO
 	case *github.ProjectEvent:
+		// TODO
 	case *github.ProjectCardEvent:
+		// TODO
 	case *github.ProjectColumnEvent:
+		// TODO
 	case *github.PublicEvent:
+		// TODO
 	case *github.PullRequestEvent:
 		e.Actor = ghe.Actor.GetLogin()
 		e.Action = p.GetAction()
-		e.Subject = strconv.Itoa(p.GetNumber())
+		e.Subject = fmt.Sprintf("%s (#%d)", p.PullRequest.GetTitle(), p.PullRequest.GetNumber())
 		e.Body = p.PullRequest.GetBody()
-		e.Title = fmt.Sprintf("[%s] %s %s #%s: %s", ghe.Repo.GetName(), e.Actor, e.Action, e.Subject, p.PullRequest.GetTitle())
+		e.Title = fmt.Sprintf("[%s] %s %s %s", ghe.Repo.GetName(), e.Actor, e.Action, e.Subject)
 	case *github.PullRequestReviewEvent:
+		// TODO
 	case *github.PullRequestReviewCommentEvent:
+		// TODO
 	case *github.PushEvent:
 		e.Actor = ghe.Actor.GetLogin()
 		e.Action = "pushed"
@@ -160,11 +200,17 @@ func ParseEvent(ghe *github.Event) (*Event, error) {
 		//e.Body = p.Issue.GetBody()
 		e.Title = fmt.Sprintf("[%s] %s %s %d commits to %s", ghe.Repo.GetName(), e.Actor, e.Action, len(p.Commits), e.Subject)
 	case *github.ReleaseEvent:
+		// TODO
 	case *github.RepositoryEvent:
+		// TODO
 	case *github.StatusEvent:
+		// TODO
 	case *github.TeamEvent:
+		// TODO
 	case *github.TeamAddEvent:
+		// TODO
 	case *github.WatchEvent:
+		// TODO
 	}
 	return e, nil
 }
