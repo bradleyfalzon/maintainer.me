@@ -16,7 +16,6 @@ import (
 	"github.com/gregjones/httpcache"
 	"github.com/gregjones/httpcache/diskcache"
 	"github.com/pressly/chi"
-	"github.com/pressly/chi/middleware"
 )
 
 func main() {
@@ -51,16 +50,11 @@ func run() error {
 	}()
 
 	r := chi.NewRouter()
-	r.Use(middleware.DefaultCompress)
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.NoCache)
 
-	web, err := web.NewWeb(db, rt)
+	err := web.AddRoutes(db, rt, r)
 	if err != nil {
 		return err
 	}
-
-	r.Get("/", web.HomeHandler)
 
 	srv := &http.Server{
 		Addr:    ":3001",

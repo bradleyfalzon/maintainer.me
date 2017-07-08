@@ -7,7 +7,9 @@ import (
 
 	"github.com/bradleyfalzon/maintainer.me/db"
 	"github.com/bradleyfalzon/maintainer.me/events"
+	"github.com/go-chi/chi/middleware"
 	"github.com/google/go-github/github"
+	"github.com/pressly/chi"
 )
 
 type Web struct {
@@ -16,20 +18,33 @@ type Web struct {
 	templates *template.Template
 }
 
-func NewWeb(db db.DB, rt http.RoundTripper) (*Web, error) {
+func AddRoutes(db db.DB, rt http.RoundTripper, router *chi.Mux) error {
 	templates, err := template.ParseGlob("web/templates/*.tmpl")
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return &Web{
+	web := &Web{
 		db:        db,
 		rt:        rt,
 		templates: templates,
-	}, nil
+	}
+
+	router.Use(middleware.DefaultCompress)
+	router.Use(middleware.Recoverer)
+	router.Use(middleware.NoCache)
+	//router.Get("/", web.HomeHandler)
+	//router.Get("/logout", web.LogoutHandler)
+	router.Route("/console", func(r chi.Router) {
+		// TODO must be user
+		//router.Get("/", web.ConsoleIndexHandler)
+		router.Get("/events", web.ConsoleEventsHandler)
+	})
+	return nil
 }
 
-func (web *Web) HomeHandler(w http.ResponseWriter, r *http.Request) {
+// ConsoleEventsHandler is a handler to view events that have been filtered.
+func (web *Web) ConsoleEventsHandler(w http.ResponseWriter, r *http.Request) {
 	users, err := web.db.Users()
 	if err != nil {
 		log.Println(err)
