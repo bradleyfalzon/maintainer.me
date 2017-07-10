@@ -6,11 +6,11 @@ import (
 	"html/template"
 	"io"
 	"net/http"
+	"time"
 
 	"golang.org/x/oauth2"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/alexedwards/scs/engine/memstore"
 	"github.com/alexedwards/scs/session"
 	"github.com/bradleyfalzon/maintainer.me/db"
 	"github.com/bradleyfalzon/maintainer.me/events"
@@ -29,7 +29,7 @@ type Web struct {
 }
 
 // NewWeb returns a new web instance.
-func NewWeb(logger *logrus.Entry, db db.DB, cache http.RoundTripper, router chi.Router, ghoauthConf *oauth2.Config) error {
+func NewWeb(logger *logrus.Entry, db db.DB, cache http.RoundTripper, router chi.Router, sessionEngine session.Engine, ghoauthConf *oauth2.Config) error {
 	templates, err := template.ParseGlob("web/templates/*.tmpl")
 	if err != nil {
 		return err
@@ -43,8 +43,19 @@ func NewWeb(logger *logrus.Entry, db db.DB, cache http.RoundTripper, router chi.
 		ghoauthConf: ghoauthConf,
 	}
 
-	sh := memstore.New(0)
-	router.Use(session.Manage(sh))
+	sessionManager := session.Manage(
+		sessionEngine,
+		session.Lifetime(365*24*time.Hour),
+		session.Persist(true),
+		session.Secure(true),
+		session.HttpOnly(true),
+		session.ErrorFunc(func(w http.ResponseWriter, r *http.Request, err error) {
+			web.logger.WithError(err).Error("session handling error")
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		}),
+	)
+
+	router.Use(sessionManager)
 
 	router.Use(middleware.DefaultCompress)
 	router.Use(middleware.Recoverer)

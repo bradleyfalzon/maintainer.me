@@ -13,6 +13,7 @@ import (
 	ghoauth "golang.org/x/oauth2/github"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/alexedwards/scs/engine/mysqlstore"
 	"github.com/bradleyfalzon/maintainer.me/db"
 	"github.com/bradleyfalzon/maintainer.me/events"
 	"github.com/bradleyfalzon/maintainer.me/notifier"
@@ -62,16 +63,19 @@ func run(logger *logrus.Logger) error {
 	}
 	db := db.NewSQLDB(os.Getenv("DB_DRIVER"), dbConn)
 
-	migrations := &migrate.FileMigrationSource{Dir: "migrations"}
+	// Migrations
 	// TODO down direction
+	migrations := &migrate.FileMigrationSource{Dir: "migrations"}
 	n, err := migrate.ExecMax(dbConn, os.Getenv("DB_DRIVER"), migrations, migrate.Up, 0)
 	if err != nil {
 		return errors.Wrap(err, "error running SQL migrations")
 	}
 	logger.Debugf("Executed %v migrations", n)
 
+	// HTTP Cache
 	cache := httpcache.NewTransport(diskcache.New("/tmp"))
 
+	// Poller
 	poller := events.NewPoller(logger.WithField("thread", "poller"), db, notifier, cache)
 
 	var wg sync.WaitGroup
@@ -85,6 +89,7 @@ func run(logger *logrus.Logger) error {
 		wg.Done()
 	}()
 
+	// GitHub OAuth Client
 	switch {
 	case os.Getenv("GITHUB_OAUTH_CLIENT_ID") == "":
 		return errors.New("environment GITHUB_OAUTH_CLIENT_ID not set")
@@ -92,7 +97,6 @@ func run(logger *logrus.Logger) error {
 		return errors.New("environment GITHUB_OAUTH_CLIENT_SECRET not set")
 	}
 
-	// GitHub OAuth Client
 	ghoauthConfig := &oauth2.Config{
 		ClientID:     os.Getenv("GITHUB_OAUTH_CLIENT_ID"),
 		ClientSecret: os.Getenv("GITHUB_OAUTH_CLIENT_SECRET"),
@@ -100,15 +104,21 @@ func run(logger *logrus.Logger) error {
 		Scopes:       []string{"user:email"},
 	}
 
-	r := chi.NewRouter()
-	err = web.NewWeb(logger.WithField("thread", "web"), db, cache, r, ghoauthConfig)
+	// Session Manager
+	sessionEngine := mysqlstore.New(dbConn, 5*time.Minute)
+	defer sessionEngine.StopCleanup()
+
+	// Web
+	router := chi.NewRouter()
+	err = web.NewWeb(logger.WithField("thread", "web"), db, cache, router, sessionEngine, ghoauthConfig)
 	if err != nil {
 		return errors.WithMessage(err, "could not instantiate web")
 	}
 
+	// HTTP Server
 	srv := &http.Server{
 		Addr:    ":3001",
-		Handler: r,
+		Handler: router,
 	}
 	wg.Add(1)
 	go func() {
