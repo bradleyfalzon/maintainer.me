@@ -3,7 +3,6 @@ package events
 import (
 	"context"
 	"fmt"
-	"log"
 	"strconv"
 	"time"
 
@@ -19,7 +18,6 @@ func ListNewEvents(ctx context.Context, client *github.Client, githubUser string
 
 ListEvents:
 	for {
-		log.Printf("getting events for user %q page %v", githubUser, opt.Page)
 		pagedEvents, response, err := client.Activity.ListEventsReceivedByUser(ctx, githubUser, false, &opt)
 		if err != nil {
 			return nil, 0, errors.Wrapf(err, "could not get GitHub events for user %q", githubUser)
@@ -221,7 +219,6 @@ func (e *Event) String() string {
 
 func (e *Event) Filter(filters []ghfilter.Filter) {
 	for _, filter := range filters {
-		log.Println("checking match", e.CreatedAt, e.Type, filter.Matches(e.RawEvent))
 		if filter.Matches(e.RawEvent) {
 			e.Excluded = false
 			return

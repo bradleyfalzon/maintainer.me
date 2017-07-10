@@ -2,12 +2,13 @@ package events
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/bradleyfalzon/maintainer.me/db"
 	"github.com/google/go-github/github"
+	"github.com/pkg/errors"
 )
 
 // githubBaseURL is the baseURL for github.com/google/go-github/github
@@ -15,6 +16,7 @@ import (
 var githubBaseURL = "https://api.github.com/"
 
 type Poller struct {
+	logger   *logrus.Entry
 	db       db.DB
 	notifier Notifier
 	rt       http.RoundTripper
@@ -25,8 +27,9 @@ type Notifier interface {
 	Notify(event *Event) error
 }
 
-func NewPoller(db db.DB, notifier Notifier, rt http.RoundTripper) *Poller {
+func NewPoller(logger *logrus.Entry, db db.DB, notifier Notifier, rt http.RoundTripper) *Poller {
 	return &Poller{
+		logger:   logger,
 		db:       db,
 		notifier: notifier,
 		rt:       rt,
@@ -44,13 +47,13 @@ func (p *Poller) Poll(ctx context.Context, interval time.Duration) error {
 	for {
 		select {
 		case <-ticker.C:
-			log.Println("Polling...")
+			p.logger.Debug("Polling...")
 			err := p.PollUsers(ctx)
 			if err != nil {
-				log.Println("Polling error:", err)
+				p.logger.WithError(err).Error("error polling users")
 			}
 		case <-ctx.Done():
-			log.Println("Poller finishing...")
+			p.logger.Error("poller finishing")
 			return ctx.Err()
 		}
 	}
@@ -63,17 +66,23 @@ func (p *Poller) PollUsers(ctx context.Context) error {
 		return err
 	}
 
+	var errorCount int
 	for _, user := range users {
-		if err := p.PollUser(ctx, user); err != nil {
-			return err
+		logger := p.logger.WithField("userID", user.ID)
+		logger.Debugf("polling user")
+		err := p.PollUser(ctx, user)
+		if err != nil {
+			errorCount++
+			logger.WithError(err).Errorf("could not poll user")
+		}
+		if errorCount > 5 {
+			return errors.WithMessage(err, "too many errors")
 		}
 	}
 	return nil
 }
 
 func (p *Poller) PollUser(ctx context.Context, user db.User) error {
-	log.Printf("Polling for user: %+v", user)
-
 	if user.EventLastCreatedAt.IsZero() {
 		// This is the first poll, mark all events as read from here
 		// TODO, this isn't my responsibility, on signup this value
@@ -112,7 +121,7 @@ func (p *Poller) PollUser(ctx context.Context, user db.User) error {
 
 	events, pollInterval, err := ListNewEvents(ctx, client, user.GitHubUser, user.EventLastCreatedAt)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not list new events for user")
 	}
 
 	if len(events) > 0 {

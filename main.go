@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"sync"
@@ -13,6 +12,7 @@ import (
 	"golang.org/x/oauth2"
 	ghoauth "golang.org/x/oauth2/github"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/bradleyfalzon/maintainer.me/db"
 	"github.com/bradleyfalzon/maintainer.me/events"
 	"github.com/bradleyfalzon/maintainer.me/notifier"
@@ -21,40 +21,44 @@ import (
 	"github.com/gregjones/httpcache"
 	"github.com/gregjones/httpcache/diskcache"
 	"github.com/joho/godotenv"
+	"github.com/pkg/errors"
 	"github.com/pressly/chi"
 	migrate "github.com/rubenv/sql-migrate"
 )
 
 func main() {
-	fmt.Println("Starting...")
-
 	_ = godotenv.Load() // Ignore errors as .env is optional
 
-	if err := run(); err != nil {
-		log.Fatal(err)
+	// Logger
+	logger := logrus.New()
+	logger.Level = logrus.DebugLevel
+	logger.Info("Starting")
+
+	if err := run(logger); err != nil {
+		logger.WithError(err).Fatalf("run failed")
 	}
-	log.Println("Terminating")
+	logger.Info("Terminating")
 }
 
-func run() error {
+func run(logger *logrus.Logger) error {
 
 	ctx := context.Background()
 
+	// Notifiers
 	notifier := &notifier.Writer{Writer: os.Stdout}
 
+	// DB
 	dsn := fmt.Sprintf(`%s:%s@tcp(%s:%s)/%s?charset=utf8&collation=utf8_unicode_ci&timeout=6s&time_zone='%%2B00:00'&parseTime=true`,
 		os.Getenv("DB_USERNAME"), os.Getenv("DB_PASSWORD"), os.Getenv("DB_HOST"), os.Getenv("DB_PORT"), os.Getenv("DB_DATABASE"),
 	)
 	dbConn, err := sql.Open(os.Getenv("DB_DRIVER"), dsn)
 	if err != nil {
-		log.Fatal(err)
-		//logger.WithError(err).Fatal("Error setting up DB")
+		return errors.Wrap(err, "error setting up DB")
 	}
 	if err := dbConn.Ping(); err != nil {
-		log.Fatal(err)
-		//logger.WithError(err).Fatalf("Error pinging %q db name: %q, username: %q, host: %q, port: %q",
-		//os.Getenv("DB_DRIVER"), os.Getenv("DB_DATABASE"), os.Getenv("DB_USERNAME"), os.Getenv("DB_HOST"), os.Getenv("DB_PORT"),
-		//)
+		return errors.Wrapf(err, "error pinging %q db name: %q, username: %q, host: %q, port: %q",
+			os.Getenv("DB_DRIVER"), os.Getenv("DB_DATABASE"), os.Getenv("DB_USERNAME"), os.Getenv("DB_HOST"), os.Getenv("DB_PORT"),
+		)
 	}
 	db := db.NewSQLDB(os.Getenv("DB_DRIVER"), dbConn)
 
@@ -62,30 +66,30 @@ func run() error {
 	// TODO down direction
 	n, err := migrate.ExecMax(dbConn, os.Getenv("DB_DRIVER"), migrations, migrate.Up, 0)
 	if err != nil {
-		log.Fatal(err)
+		return errors.Wrap(err, "error running SQL migrations")
 	}
-	log.Printf("Executed %v migrations", n)
+	logger.Debugf("Executed %v migrations", n)
 
 	cache := httpcache.NewTransport(diskcache.New("/tmp"))
 
-	poller := events.NewPoller(db, notifier, cache)
+	poller := events.NewPoller(logger.WithField("thread", "poller"), db, notifier, cache)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		err := poller.Poll(ctx, 60*time.Second)
 		if err != nil {
-			log.Println("Poller exited with error:", err)
+			logger.WithError(err).Fatal("Poller exited with an error")
 		}
-		log.Println("Poller exited")
+		logger.Info("Poller exited")
 		wg.Done()
 	}()
 
 	switch {
 	case os.Getenv("GITHUB_OAUTH_CLIENT_ID") == "":
-		log.Fatal("Environment GITHUB_OAUTH_CLIENT_ID not set")
+		return errors.New("environment GITHUB_OAUTH_CLIENT_ID not set")
 	case os.Getenv("GITHUB_OAUTH_CLIENT_SECRET") == "":
-		log.Fatal("Environment GITHUB_OAUTH_CLIENT_SECRET not set")
+		return errors.New("environment GITHUB_OAUTH_CLIENT_SECRET not set")
 	}
 
 	// GitHub OAuth Client
@@ -97,10 +101,9 @@ func run() error {
 	}
 
 	r := chi.NewRouter()
-
-	err = web.NewWeb(db, cache, r, ghoauthConfig)
+	err = web.NewWeb(logger.WithField("thread", "web"), db, cache, r, ghoauthConfig)
 	if err != nil {
-		return err
+		return errors.WithMessage(err, "could not instantiate web")
 	}
 
 	srv := &http.Server{
@@ -109,11 +112,11 @@ func run() error {
 	}
 	wg.Add(1)
 	go func() {
-		log.Println("Listening on", srv.Addr)
+		logger.Infof("Listenting on %q", srv.Addr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Println("main: http server error:", err)
+			logger.WithError(err).Fatal("ListenAndServe exited with an error")
 		}
-		log.Println("Server shut down")
+		logger.Info("ListenAndServe exited")
 		wg.Done()
 	}()
 

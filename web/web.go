@@ -1,13 +1,15 @@
 package web
 
 import (
+	"bytes"
 	"context"
 	"html/template"
-	"log"
+	"io"
 	"net/http"
 
 	"golang.org/x/oauth2"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/alexedwards/scs/engine/memstore"
 	"github.com/alexedwards/scs/session"
 	"github.com/bradleyfalzon/maintainer.me/db"
@@ -19,6 +21,7 @@ import (
 )
 
 type Web struct {
+	logger      *logrus.Entry
 	db          db.DB
 	cache       http.RoundTripper
 	templates   *template.Template
@@ -26,13 +29,14 @@ type Web struct {
 }
 
 // NewWeb returns a new web instance.
-func NewWeb(db db.DB, cache http.RoundTripper, router chi.Router, ghoauthConf *oauth2.Config) error {
+func NewWeb(logger *logrus.Entry, db db.DB, cache http.RoundTripper, router chi.Router, ghoauthConf *oauth2.Config) error {
 	templates, err := template.ParseGlob("web/templates/*.tmpl")
 	if err != nil {
 		return err
 	}
 
 	web := &Web{
+		logger:      logger,
 		db:          db,
 		cache:       cache,
 		templates:   templates,
@@ -65,7 +69,8 @@ func (web *Web) RequireLogin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		loggedIn, err := session.Exists(r, "userID")
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			web.logger.WithError(err).Error("RequireLogin could not check if session exists")
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
 		if !loggedIn {
@@ -84,17 +89,27 @@ func (web *Web) RequireLogin(next http.Handler) http.Handler {
 	})
 }
 
+func (web *Web) render(w http.ResponseWriter, template string, data interface{}) {
+	buf := &bytes.Buffer{}
+	if err := web.templates.ExecuteTemplate(buf, template, data); err != nil {
+		web.logger.WithField("template", template).WithError(err).Error("could not execute template")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	io.Copy(w, buf)
+}
+
 // HomeHandler is the handler to view the console page.
 func (web *Web) HomeHandler(w http.ResponseWriter, r *http.Request) {
-	if err := web.templates.ExecuteTemplate(w, "home.tmpl", nil); err != nil {
-		log.Println(err)
-	}
+	web.render(w, "home.tmpl", nil)
 }
+
+const ghOAuthStateKey = "ghOAuthState"
 
 // LoginHandler is the handler to view the console page.
 func (web *Web) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	uuid := uuid.New()
-	session.PutString(r, "ghOAuthState", uuid.String())
+	session.PutString(r, ghOAuthStateKey, uuid.String())
 
 	url := web.ghoauthConf.AuthCodeURL(uuid.String(), oauth2.AccessTypeOnline)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
@@ -104,31 +119,25 @@ func (web *Web) LoginHandler(w http.ResponseWriter, r *http.Request) {
 // after the user has logged into service.
 func (web *Web) LoginCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	// Get and *remove* state stored in session.
-	sessionState, err := session.PopString(r, "ghOAuthState")
+	sessionState, err := session.PopString(r, ghOAuthStateKey)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		log.Println(err)
-		// TODO log
+		web.logger.WithError(err).Errorf("could not get session's %v", ghOAuthStateKey)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
 	if r.FormValue("state") != sessionState {
+		web.logger.WithError(err).Errorf("received state %q does not match session state %q", r.FormValue("state"), sessionState)
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		log.Println(err)
-		// TODO log
 		return
 	}
 
 	token, err := web.ghoauthConf.Exchange(r.Context(), r.FormValue("code"))
 	if err != nil {
+		web.logger.WithError(err).Errorf("could not exchange oauth code %q for token", r.FormValue("code"))
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		log.Println(err)
-		// TODO log
 		return
 	}
-
-	// TODO store this token against a user in persistent DB, (along with their email?)
-	// We'll need it for the poller to access user's details
 
 	// Create oauth client
 
@@ -143,34 +152,32 @@ func (web *Web) LoginCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	// Get GitHub ID
 	ghUser, _, err := client.Users.Get(r.Context(), "")
 	if err != nil {
+		web.logger.WithError(err).Error("could not get github authenticated user details")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		log.Println(err)
-		// TODO log
 		return
 	}
 
 	if ghUser.GetID() == 0 {
+		web.logger.WithError(err).Errorf("github authenticated user's ID is %d", ghUser.GetID())
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		log.Println("error id is zero")
-		// TODO log
 		return
 	}
-	log.Println("logged in with ID:", ghUser.GetID())
 
 	// Create or Update user's account with GitHub ID
 	userID, err := web.db.GitHubLogin(r.Context(), ghUser.GetID(), token)
 	if err != nil {
+		web.logger.WithError(err).Error("could not user's ID")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		log.Println(err)
-		// TODO log
 		return
 	}
 
+	web.logger.WithFields(logrus.Fields{
+		"userID":      userID,
+		"githubID":    ghUser.GetID(),
+		"githubLogin": ghUser.GetLogin(),
+	}).Info("User logged in")
+
 	// Set our UserID in session
-
-	log.Println("got token", token)
-	log.Println("got userID", userID)
-
 	session.PutInt(r, "userID", userID)
 
 	http.Redirect(w, r, "/console", http.StatusSeeOther)
@@ -178,29 +185,29 @@ func (web *Web) LoginCallbackHandler(w http.ResponseWriter, r *http.Request) {
 
 // ConsoleHomeHandler is the handler to view the console page.
 func (web *Web) ConsoleHomeHandler(w http.ResponseWriter, r *http.Request) {
-	user, err := session.GetString(r, "username")
+	_, err := session.GetString(r, "username")
 	if err != nil {
-		log.Println(err)
-		return // TODO show error
+		web.logger.WithError(err).Error("could not get session")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
 	}
-	log.Println("console home user:", user)
-	if err := web.templates.ExecuteTemplate(w, "console-home.tmpl", nil); err != nil {
-		log.Println(err)
-	}
+	web.render(w, "console-home.tmpl", nil)
 }
 
 // ConsoleEventsHandler is a handler to view events that have been filtered.
 func (web *Web) ConsoleEventsHandler(w http.ResponseWriter, r *http.Request) {
 	users, err := web.db.Users()
 	if err != nil {
-		log.Println(err)
+		web.logger.WithError(err).Error("could not get user")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 	user := users[0]
 
 	filters, err := web.db.UsersFilters(user.ID)
 	if err != nil {
-		log.Println(err)
+		web.logger.WithError(err).Error("could not get user's filters")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
@@ -211,7 +218,8 @@ func (web *Web) ConsoleEventsHandler(w http.ResponseWriter, r *http.Request) {
 
 	allEvents, _, err := events.ListNewEvents(r.Context(), client, user.GitHubUser, user.EventLastCreatedAt)
 	if err != nil {
-		log.Println(err)
+		web.logger.WithError(err).Error("could not list new events")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 	allEvents.Filter(filters)
@@ -221,7 +229,5 @@ func (web *Web) ConsoleEventsHandler(w http.ResponseWriter, r *http.Request) {
 		Events events.Events
 	}{"Maintainer.Me", allEvents}
 
-	if err := web.templates.ExecuteTemplate(w, "home.tmpl", page); err != nil {
-		log.Println(err)
-	}
+	web.render(w, "console-test.tmpl", page)
 }
