@@ -17,6 +17,8 @@ import (
 type DB interface {
 	// Users returns a list of active users that need are scheduled to be polled.
 	Users() ([]User, error)
+	// User returns a single user from the database, returns nil if no user was found.
+	User(userID int) (*User, error)
 	// UsersFilters returns all filters for a User ID.
 	UsersFilters(userID int) ([]ghfilter.Filter, error)
 	// SetUsersNextUpdate
@@ -29,10 +31,11 @@ type DB interface {
 type User struct {
 	ID int
 
-	Email       string
-	GitHubLogin string
-	GitHubID    int
-	GitHubToken *oauth2.Token
+	Email          string `db:"email"`
+	GitHubID       int    `db:"github_id"`
+	GitHubLogin    string `db:"github_login"`
+	GitHubTokenRaw []byte `db:"github_token"`
+	GitHubToken    *oauth2.Token
 
 	EventLastCreatedAt time.Time // the latest created at event for the customer
 	EventNextPoll      time.Time // time when the next update should occur
@@ -63,6 +66,23 @@ func (db *SQLDB) Users() ([]User, error) {
 			EventLastCreatedAt: time.Date(2017, 07, 03, 0, 0, 0, 0, time.UTC),
 		},
 	}, nil
+}
+
+func (db *SQLDB) User(userID int) (*User, error) {
+	user := &User{}
+	err := db.sqlx.Get(user, "SELECT id, email, github_id, github_login, github_token FROM users WHERE id = ?", userID)
+	switch {
+	case err == sql.ErrNoRows:
+		return nil, nil
+	case err != nil:
+		return nil, errors.Wrap(err, "could not select from users")
+	}
+
+	if err := json.Unmarshal(user.GitHubTokenRaw, &user.GitHubToken); err != nil {
+		return nil, errors.Wrapf(err, "could not unmarshal github token %q", user.GitHubTokenRaw)
+	}
+
+	return user, nil
 }
 
 // UsersFilters implements the DB interface.

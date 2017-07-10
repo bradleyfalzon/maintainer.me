@@ -140,14 +140,7 @@ func (web *Web) LoginCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create oauth client
-
-	hClient := http.DefaultClient
-	hClient.Transport = web.cache
-
-	ctx := context.WithValue(r.Context(), oauth2.HTTPClient, hClient)
-	oauthClient := web.ghoauthConf.Client(ctx, token)
-
-	client := github.NewClient(oauthClient)
+	client := web.githubClient(r.Context(), token)
 
 	// Get GitHub ID
 	ghUser, _, err := client.Users.Get(r.Context(), "")
@@ -183,6 +176,16 @@ func (web *Web) LoginCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/console", http.StatusSeeOther)
 }
 
+func (web *Web) githubClient(ctx context.Context, token *oauth2.Token) *github.Client {
+	hClient := http.DefaultClient
+	hClient.Transport = web.cache
+
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, hClient)
+	oauthClient := web.ghoauthConf.Client(ctx, token)
+
+	return github.NewClient(oauthClient)
+}
+
 // ConsoleHomeHandler is the handler to view the console page.
 func (web *Web) ConsoleHomeHandler(w http.ResponseWriter, r *http.Request) {
 	_, err := session.GetString(r, "username")
@@ -196,13 +199,19 @@ func (web *Web) ConsoleHomeHandler(w http.ResponseWriter, r *http.Request) {
 
 // ConsoleEventsHandler is a handler to view events that have been filtered.
 func (web *Web) ConsoleEventsHandler(w http.ResponseWriter, r *http.Request) {
-	users, err := web.db.Users()
+	userID, err := session.GetInt(r, "userID")
+	if err != nil {
+		web.logger.WithError(err).Error("could not userID from session")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	user, err := web.db.User(userID)
 	if err != nil {
 		web.logger.WithError(err).Error("could not get user")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-	user := users[0]
 
 	filters, err := web.db.UsersFilters(user.ID)
 	if err != nil {
@@ -211,10 +220,7 @@ func (web *Web) ConsoleEventsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpClient := &http.Client{
-		Transport: web.cache,
-	}
-	client := github.NewClient(httpClient)
+	client := web.githubClient(r.Context(), user.GitHubToken)
 
 	allEvents, _, err := events.ListNewEvents(r.Context(), client, user.GitHubLogin, user.EventLastCreatedAt)
 	if err != nil {
@@ -229,5 +235,5 @@ func (web *Web) ConsoleEventsHandler(w http.ResponseWriter, r *http.Request) {
 		Events events.Events
 	}{"Maintainer.Me", allEvents}
 
-	web.render(w, "console-test.tmpl", page)
+	web.render(w, "console-events.tmpl", page)
 }
