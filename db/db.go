@@ -1,10 +1,16 @@
 package db
 
 import (
+	"context"
 	"database/sql"
+	"encoding/json"
 	"time"
 
+	"golang.org/x/oauth2"
+
 	"github.com/bradleyfalzon/ghfilter"
+	"github.com/jmoiron/sqlx"
+	"github.com/pkg/errors"
 )
 
 // DB represents a database.
@@ -15,6 +21,9 @@ type DB interface {
 	UsersFilters(userID int) ([]ghfilter.Filter, error)
 	// SetUsersNextUpdate
 	SetUsersPollResult(userID int, lastCreatedAt time.Time, nextUpdate time.Time) error
+	// GitHubLogin logs a user in via GitHub, if a user already exists with the same
+	// githubID, the user's accessToken is updated, else a new user is created.
+	GitHubLogin(ctx context.Context, githubID int, token *oauth2.Token) (userID int, err error)
 }
 
 type User struct {
@@ -34,13 +43,15 @@ type User struct {
 }
 
 type SQLDB struct {
-	db sql.DB
+	sqlx *sqlx.DB
 }
 
 var _ DB = &SQLDB{}
 
-func NewSQLDB() *SQLDB {
-	return &SQLDB{}
+func NewSQLDB(driver string, dbConn *sql.DB) *SQLDB {
+	return &SQLDB{
+		sqlx: sqlx.NewDb(dbConn, driver),
+	}
 }
 
 // Users implements the DB interface.
@@ -93,4 +104,38 @@ func (db *SQLDB) UsersFilters(userID int) ([]ghfilter.Filter, error) {
 func (db *SQLDB) SetUsersPollResult(userID int, lastCreatedAt, nextPoll time.Time) error {
 	// TODO do
 	return nil
+}
+
+// GitHubLogin implements the DB interface.
+func (db *SQLDB) GitHubLogin(ctx context.Context, githubID int, token *oauth2.Token) (int, error) {
+	jsonToken, err := json.Marshal(token)
+	if err != nil {
+		return 0, errors.Wrap(err, "could not marshal oauth2.token")
+	}
+
+	// Check if user exists
+	var userID int
+	err = db.sqlx.QueryRow("SELECT id FROM users WHERE github_id = ?", githubID).Scan(&userID)
+	switch {
+	case err == sql.ErrNoRows:
+		// Add token to new user
+		res, err := db.sqlx.Exec("INSERT INTO users (github_id, github_token) VALUES (?, ?)", githubID, jsonToken)
+		if err != nil {
+			return 0, errors.Wrapf(err, "error inserting new githubID %q", githubID)
+		}
+		id, err := res.LastInsertId()
+		if err != nil {
+			return 0, errors.Wrap(err, "error in lastInsertId")
+		}
+		return int(id), nil
+	case err != nil:
+		return 0, errors.Wrapf(err, "error getting userID for githubID %q", githubID)
+	}
+
+	// Add token to existing user and update email
+	_, err = db.sqlx.Exec("UPDATE users SET github_token = ? WHERE id = ?", jsonToken, userID)
+	if err != nil {
+		return 0, errors.Wrapf(err, "could set userID %q github_token", userID)
+	}
+	return userID, nil
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
@@ -13,13 +14,18 @@ import (
 	"github.com/bradleyfalzon/maintainer.me/events"
 	"github.com/bradleyfalzon/maintainer.me/notifier"
 	"github.com/bradleyfalzon/maintainer.me/web"
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/gregjones/httpcache"
 	"github.com/gregjones/httpcache/diskcache"
+	"github.com/joho/godotenv"
 	"github.com/pressly/chi"
+	migrate "github.com/rubenv/sql-migrate"
 )
 
 func main() {
 	fmt.Println("Starting...")
+
+	_ = godotenv.Load() // Ignore errors as .env is optional
 
 	if err := run(); err != nil {
 		log.Fatal(err)
@@ -32,11 +38,34 @@ func run() error {
 	ctx := context.Background()
 
 	notifier := &notifier.Writer{Writer: os.Stdout}
-	db := db.NewSQLDB()
 
-	rt := httpcache.NewTransport(diskcache.New("/tmp"))
+	dsn := fmt.Sprintf(`%s:%s@tcp(%s:%s)/%s?charset=utf8&collation=utf8_unicode_ci&timeout=6s&time_zone='%%2B00:00'&parseTime=true`,
+		os.Getenv("DB_USERNAME"), os.Getenv("DB_PASSWORD"), os.Getenv("DB_HOST"), os.Getenv("DB_PORT"), os.Getenv("DB_DATABASE"),
+	)
+	dbConn, err := sql.Open(os.Getenv("DB_DRIVER"), dsn)
+	if err != nil {
+		log.Fatal(err)
+		//logger.WithError(err).Fatal("Error setting up DB")
+	}
+	if err := dbConn.Ping(); err != nil {
+		log.Fatal(err)
+		//logger.WithError(err).Fatalf("Error pinging %q db name: %q, username: %q, host: %q, port: %q",
+		//os.Getenv("DB_DRIVER"), os.Getenv("DB_DATABASE"), os.Getenv("DB_USERNAME"), os.Getenv("DB_HOST"), os.Getenv("DB_PORT"),
+		//)
+	}
+	db := db.NewSQLDB(os.Getenv("DB_DRIVER"), dbConn)
 
-	poller := events.NewPoller(db, notifier, rt)
+	migrations := &migrate.FileMigrationSource{Dir: "migrations"}
+	// TODO down direction
+	n, err := migrate.ExecMax(dbConn, os.Getenv("DB_DRIVER"), migrations, migrate.Up, 0)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("Executed %v migrations", n)
+
+	cache := httpcache.NewTransport(diskcache.New("/tmp"))
+
+	poller := events.NewPoller(db, notifier, cache)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
