@@ -164,7 +164,7 @@ func (web *Web) LoginCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create or Update user's account with GitHub ID
-	userID, err := web.db.GitHubLogin(r.Context(), ghUser.GetID(), token)
+	userID, err := web.db.GitHubLogin(r.Context(), ghUser.GetEmail(), ghUser.GetID(), ghUser.GetLogin(), token)
 	if err != nil {
 		web.logger.WithError(err).Error("could not user's ID")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -216,7 +216,7 @@ func (web *Web) ConsoleEventsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	client := github.NewClient(httpClient)
 
-	allEvents, _, err := events.ListNewEvents(r.Context(), client, user.GitHubUser, user.EventLastCreatedAt)
+	allEvents, _, err := events.ListNewEvents(r.Context(), client, user.GitHubLogin, user.EventLastCreatedAt)
 	if err != nil {
 		web.logger.WithError(err).Error("could not list new events")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)

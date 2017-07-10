@@ -119,7 +119,7 @@ func (p *Poller) PollUser(ctx context.Context, user db.User) error {
 	}
 	client := github.NewClient(httpClient)
 
-	events, pollInterval, err := ListNewEvents(ctx, client, user.GitHubUser, user.EventLastCreatedAt)
+	events, pollInterval, err := ListNewEvents(ctx, client, user.GitHubLogin, user.EventLastCreatedAt)
 	if err != nil {
 		return errors.Wrap(err, "could not list new events for user")
 	}

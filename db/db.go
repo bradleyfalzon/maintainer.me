@@ -23,23 +23,19 @@ type DB interface {
 	SetUsersPollResult(userID int, lastCreatedAt time.Time, nextUpdate time.Time) error
 	// GitHubLogin logs a user in via GitHub, if a user already exists with the same
 	// githubID, the user's accessToken is updated, else a new user is created.
-	GitHubLogin(ctx context.Context, githubID int, token *oauth2.Token) (userID int, err error)
+	GitHubLogin(ctx context.Context, email string, githubID int, githubLogin string, token *oauth2.Token) (userID int, err error)
 }
 
 type User struct {
 	ID int
 
 	Email       string
-	GitHubUser  string
+	GitHubLogin string
 	GitHubID    int
-	GitHubToken []byte // nil if none assigned to user
-	//Email       string `db:"email"`
-	//GitHubID    int    `db:"github_id"`
-	//GitHubToken []byte `db:"github_token"` // nil if none assigned to user
+	GitHubToken *oauth2.Token
 
 	EventLastCreatedAt time.Time // the latest created at event for the customer
 	EventNextPoll      time.Time // time when the next update should occur
-	//ListEventsETag          string    // list events etag used for caching - actually, i wouldn't need to store it
 }
 
 type SQLDB struct {
@@ -63,7 +59,7 @@ func (db *SQLDB) Users() ([]User, error) {
 			Email:    "",
 			GitHubID: 1,
 			//GitHubToken: []
-			GitHubUser:         "bradleyfalzon",
+			GitHubLogin:        "bradleyfalzon",
 			EventLastCreatedAt: time.Date(2017, 07, 03, 0, 0, 0, 0, time.UTC),
 		},
 	}, nil
@@ -107,7 +103,7 @@ func (db *SQLDB) SetUsersPollResult(userID int, lastCreatedAt, nextPoll time.Tim
 }
 
 // GitHubLogin implements the DB interface.
-func (db *SQLDB) GitHubLogin(ctx context.Context, githubID int, token *oauth2.Token) (int, error) {
+func (db *SQLDB) GitHubLogin(ctx context.Context, email string, githubID int, githubLogin string, token *oauth2.Token) (int, error) {
 	jsonToken, err := json.Marshal(token)
 	if err != nil {
 		return 0, errors.Wrap(err, "could not marshal oauth2.token")
@@ -119,7 +115,7 @@ func (db *SQLDB) GitHubLogin(ctx context.Context, githubID int, token *oauth2.To
 	switch {
 	case err == sql.ErrNoRows:
 		// Add token to new user
-		res, err := db.sqlx.Exec("INSERT INTO users (github_id, github_token) VALUES (?, ?)", githubID, jsonToken)
+		res, err := db.sqlx.Exec("INSERT INTO users (email, github_id, github_login, github_token) VALUES (?, ?, ?, ?)", email, githubID, githubLogin, jsonToken)
 		if err != nil {
 			return 0, errors.Wrapf(err, "error inserting new githubID %q", githubID)
 		}
@@ -133,9 +129,9 @@ func (db *SQLDB) GitHubLogin(ctx context.Context, githubID int, token *oauth2.To
 	}
 
 	// Add token to existing user and update email
-	_, err = db.sqlx.Exec("UPDATE users SET github_token = ? WHERE id = ?", jsonToken, userID)
+	_, err = db.sqlx.Exec("UPDATE users SET email = ?, github_login = ?, github_token = ? WHERE id = ?", email, githubLogin, jsonToken, userID)
 	if err != nil {
-		return 0, errors.Wrapf(err, "could set userID %q github_token", userID)
+		return 0, errors.Wrapf(err, "could update userID %d", userID)
 	}
 	return userID, nil
 }
