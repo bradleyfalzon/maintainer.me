@@ -10,6 +10,9 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/oauth2"
+	ghoauth "golang.org/x/oauth2/github"
+
 	"github.com/bradleyfalzon/maintainer.me/db"
 	"github.com/bradleyfalzon/maintainer.me/events"
 	"github.com/bradleyfalzon/maintainer.me/notifier"
@@ -78,9 +81,24 @@ func run() error {
 		wg.Done()
 	}()
 
+	switch {
+	case os.Getenv("GITHUB_OAUTH_CLIENT_ID") == "":
+		log.Fatal("Environment GITHUB_OAUTH_CLIENT_ID not set")
+	case os.Getenv("GITHUB_OAUTH_CLIENT_SECRET") == "":
+		log.Fatal("Environment GITHUB_OAUTH_CLIENT_SECRET not set")
+	}
+
+	// GitHub OAuth Client
+	ghoauthConfig := &oauth2.Config{
+		ClientID:     os.Getenv("GITHUB_OAUTH_CLIENT_ID"),
+		ClientSecret: os.Getenv("GITHUB_OAUTH_CLIENT_SECRET"),
+		Endpoint:     ghoauth.Endpoint,
+		Scopes:       []string{"user:email"},
+	}
+
 	r := chi.NewRouter()
 
-	err := web.AddRoutes(db, rt, r)
+	err = web.NewWeb(db, cache, r, ghoauthConfig)
 	if err != nil {
 		return err
 	}
