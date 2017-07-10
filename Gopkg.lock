@@ -2,6 +2,18 @@
 
 
 [[projects]]
+  name = "github.com/Sirupsen/logrus"
+  packages = ["."]
+  revision = "202f25545ea4cf9b191ff7f846df5d87c9382c2b"
+  version = "v1.0.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/alexedwards/scs"
+  packages = ["engine/mysqlstore","session"]
+  revision = "f36d272d74ecae3d61058d91dc7401715b044ca1"
+
+[[projects]]
   branch = "master"
   name = "github.com/bradleyfalzon/ghfilter"
   packages = ["."]
@@ -9,9 +21,15 @@
 
 [[projects]]
   name = "github.com/go-chi/chi"
-  packages = ["."]
+  packages = [".","middleware"]
   revision = "967844826e58cf31213a7dfb82455d242ad85101"
   version = "v3.0.0"
+
+[[projects]]
+  name = "github.com/go-sql-driver/mysql"
+  packages = ["."]
+  revision = "a0583e0143b1624142adab07e0e97fe106d99561"
+  version = "v1.3"
 
 [[projects]]
   branch = "master"
@@ -38,10 +56,28 @@
   revision = "53e6ce116135b80d037921a7fdd5138cf32d7a8a"
 
 [[projects]]
+  name = "github.com/google/uuid"
+  packages = ["."]
+  revision = "064e2069ce9c359c118179501254f67d7d37ba24"
+  version = "0.2"
+
+[[projects]]
   branch = "master"
   name = "github.com/gregjones/httpcache"
   packages = [".","diskcache"]
   revision = "0d2297f241a3503b4d464cd434e6d1490ec76e9a"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/jmoiron/sqlx"
+  packages = [".","reflectx"]
+  revision = "d9bd385d68c068f1fabb5057e3dedcbcbb039d0f"
+
+[[projects]]
+  name = "github.com/joho/godotenv"
+  packages = ["."]
+  revision = "726cc8b906e3d31c70a9671c90a13716a8d3f50d"
+  version = "v1.1"
 
 [[projects]]
   branch = "master"
@@ -63,25 +99,49 @@
 
 [[projects]]
   name = "github.com/pressly/chi"
-  packages = [".","middleware"]
+  packages = ["."]
   revision = "967844826e58cf31213a7dfb82455d242ad85101"
   version = "v3.0.0"
 
 [[projects]]
   branch = "master"
+  name = "github.com/rubenv/sql-migrate"
+  packages = [".","sqlparse"]
+  revision = "72a5478faa469f9023cc1802367cddfc5270acbb"
+
+[[projects]]
+  branch = "master"
   name = "golang.org/x/net"
-  packages = ["context"]
+  packages = ["context","context/ctxhttp"]
   revision = "1f9224279e98554b6a6432d4dd998a739f8b2b7c"
 
 [[projects]]
+  branch = "master"
+  name = "golang.org/x/oauth2"
+  packages = [".","github","internal"]
+  revision = "cce311a261e6fcf29de72ca96827bdb0b7d9c9e6"
+
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/sys"
+  packages = ["unix"]
+  revision = "739734461d1c916b6c72a63d7efda2b27edb369f"
+
+[[projects]]
   name = "google.golang.org/appengine"
-  packages = [".","internal","internal/app_identity","internal/base","internal/datastore","internal/log","internal/modules","internal/remote_api"]
+  packages = [".","internal","internal/app_identity","internal/base","internal/datastore","internal/log","internal/modules","internal/remote_api","internal/urlfetch","urlfetch"]
   revision = "150dc57a1b433e64154302bdc40b6bb8aefa313a"
   version = "v1.0.0"
+
+[[projects]]
+  name = "gopkg.in/gorp.v1"
+  packages = ["."]
+  revision = "c87af80f3cc5036b55b83d77171e156791085e2e"
+  version = "v1.7.1"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "ca8e892b00abc1c53c02ec9091d6f663ac5f9ea7a369a44ba9c6c0b2f6a9cb36"
+  inputs-digest = "76c495b889ef64093f5b6e7240e5d6331d693f62c09cbe9f03866be0787a70d5"
   solver-name = "gps-cdcl"
   solver-version = 1
