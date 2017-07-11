@@ -233,7 +233,9 @@ func (web *Web) ConsoleEventsHandler(w http.ResponseWriter, r *http.Request) {
 
 	client := web.githubClient(r.Context(), user.GitHubToken)
 
-	allEvents, _, err := events.ListNewEvents(r.Context(), client, user.GitHubLogin, user.EventLastCreatedAt)
+	since := -2 * 24 * time.Hour
+
+	allEvents, _, err := events.ListNewEvents(r.Context(), client, user.GitHubLogin, time.Now().Add(since))
 	if err != nil {
 		web.logger.WithError(err).Error("could not list new events")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -244,7 +246,8 @@ func (web *Web) ConsoleEventsHandler(w http.ResponseWriter, r *http.Request) {
 	page := struct {
 		Title  string
 		Events events.Events
-	}{"Maintainer.Me", allEvents}
+		Since  time.Duration
+	}{"Maintainer.Me", allEvents, since}
 
 	web.render(w, "console-events.tmpl", page)
 }

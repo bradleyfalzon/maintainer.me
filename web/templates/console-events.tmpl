@@ -2,20 +2,20 @@
 
 <h1>Events</h1>
 
+<p>Events since {{ .Since }}</p>
+
 <style>
-table { border: 1px solid #d7d7d7; border-spacing: 0; }
-table td { padding: 4px; }
-table tr.excluded { background-color: #f2dede; }
-table tr.included { background-color: #dff0d8; }
+table { font-size:12px; }
+table tbody { font-weight: bold }
+table tr.excluded { color: #7d7d7d; font-style: italic; font-weight: normal; }
 </style>
 
-<table>
+<table class="table table-sm">
 	<thead>
         <tr>
             <td>Type</td>
             <td>Action</td>
             <td>Event</td>
-            <td>Excluded</td>
         </tr>
 	</thead>
 	<tbody>
@@ -24,7 +24,6 @@ table tr.included { background-color: #dff0d8; }
 				<td>{{ .Type }}</td>
 				<td>{{ .Action }}</td>
 				<td>{{ .String }}</td>
-				<td>{{ .Excluded }}</td>
 			</tr>
 		{{ end }}
 	</tbody>
