@@ -129,23 +129,24 @@ func (web *Web) LoginHandler(w http.ResponseWriter, r *http.Request) {
 // LoginCallbackHandler is the handler used by the login page during a callback
 // after the user has logged into service.
 func (web *Web) LoginCallbackHandler(w http.ResponseWriter, r *http.Request) {
+	logger := web.logger.WithField("requestURI", r.RequestURI)
 	// Get and *remove* state stored in session.
 	sessionState, err := session.PopString(r, ghOAuthStateKey)
 	if err != nil {
-		web.logger.WithError(err).Errorf("could not get session's %v", ghOAuthStateKey)
+		logger.WithError(err).Errorf("could not get session's %v", ghOAuthStateKey)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
 	if r.FormValue("state") != sessionState {
-		web.logger.WithError(err).Errorf("received state %q does not match session state %q", r.FormValue("state"), sessionState)
+		logger.WithError(err).Errorf("received state %q does not match session state %q", r.FormValue("state"), sessionState)
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
 
 	token, err := web.ghoauthConf.Exchange(r.Context(), r.FormValue("code"))
 	if err != nil {
-		web.logger.WithError(err).Errorf("could not exchange oauth code %q for token", r.FormValue("code"))
+		logger.WithError(err).Errorf("could not exchange oauth code %q for token", r.FormValue("code"))
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -156,13 +157,13 @@ func (web *Web) LoginCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	// Get GitHub ID
 	ghUser, _, err := client.Users.Get(r.Context(), "")
 	if err != nil {
-		web.logger.WithError(err).Error("could not get github authenticated user details")
+		logger.WithError(err).Error("could not get github authenticated user details")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
 	if ghUser.GetID() == 0 {
-		web.logger.WithError(err).Errorf("github authenticated user's ID is %d", ghUser.GetID())
+		logger.WithError(err).Errorf("github authenticated user's ID is %d", ghUser.GetID())
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -170,12 +171,12 @@ func (web *Web) LoginCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	// Create or Update user's account with GitHub ID
 	userID, err := web.db.GitHubLogin(r.Context(), ghUser.GetEmail(), ghUser.GetID(), ghUser.GetLogin(), token)
 	if err != nil {
-		web.logger.WithError(err).Error("could not user's ID")
+		logger.WithError(err).Error("could not user's ID")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
-	web.logger.WithFields(logrus.Fields{
+	logger.WithFields(logrus.Fields{
 		"userID":      userID,
 		"githubID":    ghUser.GetID(),
 		"githubLogin": ghUser.GetLogin(),
@@ -199,9 +200,10 @@ func (web *Web) githubClient(ctx context.Context, token *oauth2.Token) *github.C
 
 // ConsoleHomeHandler is the handler to view the console page.
 func (web *Web) ConsoleHomeHandler(w http.ResponseWriter, r *http.Request) {
+	logger := web.logger.WithField("requestURI", r.RequestURI)
 	_, err := session.GetString(r, "username")
 	if err != nil {
-		web.logger.WithError(err).Error("could not get session")
+		logger.WithError(err).Error("could not get session")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -210,34 +212,37 @@ func (web *Web) ConsoleHomeHandler(w http.ResponseWriter, r *http.Request) {
 
 // ConsoleEventsHandler is a handler to view events that have been filtered.
 func (web *Web) ConsoleEventsHandler(w http.ResponseWriter, r *http.Request) {
+	logger := web.logger.WithField("requestURI", r.RequestURI)
 	userID, err := session.GetInt(r, "userID")
 	if err != nil {
-		web.logger.WithError(err).Error("could not userID from session")
+		logger.WithError(err).Error("could not userID from session")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
+	logger = logger.WithField("userID", userID)
+
 	user, err := web.db.User(userID)
 	if err != nil {
-		web.logger.WithError(err).Error("could not get user")
+		logger.WithError(err).Error("could not get user")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
 	filters, err := web.db.UsersFilters(user.ID)
 	if err != nil {
-		web.logger.WithError(err).Error("could not get user's filters")
+		logger.WithError(err).Error("could not get user's filters")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
 	client := web.githubClient(r.Context(), user.GitHubToken)
 
-	since := -2 * 24 * time.Hour
+	since := -1 * 24 * time.Hour
 
-	allEvents, _, err := events.ListNewEvents(r.Context(), client, user.GitHubLogin, time.Now().Add(since))
+	allEvents, _, err := events.ListNewEvents(r.Context(), logger, client, user.GitHubLogin, time.Now().Add(since))
 	if err != nil {
-		web.logger.WithError(err).Error("could not list new events")
+		logger.WithError(err).Error("could not list new events")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}

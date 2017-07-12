@@ -69,8 +69,7 @@ func (p *Poller) PollUsers(ctx context.Context) error {
 	var errorCount int
 	for _, user := range users {
 		logger := p.logger.WithField("userID", user.ID)
-		logger.Debugf("polling user")
-		err := p.PollUser(ctx, user)
+		err := p.PollUser(ctx, logger, user)
 		if err != nil {
 			errorCount++
 			logger.WithError(err).Errorf("could not poll user")
@@ -82,7 +81,8 @@ func (p *Poller) PollUsers(ctx context.Context) error {
 	return nil
 }
 
-func (p *Poller) PollUser(ctx context.Context, user db.User) error {
+func (p *Poller) PollUser(ctx context.Context, logger *logrus.Entry, user db.User) error {
+	logger.Debugf("polling user")
 	if user.EventLastCreatedAt.IsZero() {
 		// This is the first poll, mark all events as read from here
 		// TODO, this isn't my responsibility, on signup this value
@@ -119,7 +119,7 @@ func (p *Poller) PollUser(ctx context.Context, user db.User) error {
 	}
 	client := github.NewClient(httpClient)
 
-	events, pollInterval, err := ListNewEvents(ctx, client, user.GitHubLogin, user.EventLastCreatedAt)
+	events, pollInterval, err := ListNewEvents(ctx, logger, client, user.GitHubLogin, user.EventLastCreatedAt)
 	if err != nil {
 		return errors.Wrap(err, "could not list new events for user")
 	}

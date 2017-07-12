@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/bradleyfalzon/ghfilter"
 	"github.com/google/go-github/github"
 	"github.com/pkg/errors"
@@ -13,15 +14,17 @@ import (
 
 type Events []*Event
 
-func ListNewEvents(ctx context.Context, client *github.Client, githubUser string, lastCreatedAt time.Time) (events Events, pollInterval time.Duration, err error) {
+func ListNewEvents(ctx context.Context, logger *logrus.Entry, client *github.Client, githubUser string, lastCreatedAt time.Time) (events Events, pollInterval time.Duration, err error) {
 	opt := github.ListOptions{Page: 1}
 
 ListEvents:
 	for {
+		start := time.Now()
 		pagedEvents, response, err := client.Activity.ListEventsReceivedByUser(ctx, githubUser, false, &opt)
 		if err != nil {
 			return nil, 0, errors.Wrapf(err, "could not get GitHub events for user %q", githubUser)
 		}
+		logger.Debugf("polled events page %v in %v", opt.Page, time.Since(start))
 
 		// Use the etag and poll from last page
 		pollInt, err := strconv.ParseInt(response.Response.Header.Get("X-Poll-Interval"), 10, 32)
