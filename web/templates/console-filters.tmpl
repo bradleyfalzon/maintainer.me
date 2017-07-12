@@ -1,0 +1,64 @@
+{{ template "console-header" . }}
+
+<h1>Filters</h1>
+
+<p>Use filters to keep or discard events that don't interest you.</p>
+
+<style>
+.filter {
+    border: 1px solid #d7d7d7;
+    padding: 0.5em;
+    margin-bottom: 0.5em;
+}
+
+.filter .conditions {
+    margin-bottom: 0;
+}
+
+.filter .action {
+    text-align: center;
+}
+
+.or {
+    color: #868686;
+    text-align: center;
+    margin-bottom: 0.5em;
+}
+
+.filters>.or:last-child {
+    display: none;
+}
+
+.default {
+    text-align: center;
+}
+</style>
+
+<div class="filters">
+    {{ range .Filters }}
+        <div class="filter">
+            <div class="row">
+                <div class="col-9">
+                    <ol class="conditions">
+                        {{ range .Conditions }}
+                            <li class="condition">{{ .String }}</li>
+                        {{ end }}
+                    </ol>
+                </div>
+                <div class="col-3">
+                    <div class="action bg-success text-white">Keep event</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="or">- or -</div>
+    {{ end }}
+</div>
+
+<div class="or">- if none match -</div>
+
+<div class="default">
+    <span class="btn bg-danger text-white">discard event</div>
+</div>
+
+{{ template "console-footer" . }}

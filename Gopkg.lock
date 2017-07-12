@@ -14,10 +14,15 @@
   revision = "f36d272d74ecae3d61058d91dc7401715b044ca1"
 
 [[projects]]
+  branch = "master"
   name = "github.com/bradleyfalzon/ghfilter"
   packages = ["."]
-  revision = "c45d2aaa3118a367df9ad7a9a48c8a9ba4e9c278"
-  version = "v0.1"
+<<<<<<< Updated upstream
+  revision = "588f9345fe43ceb865e232aed1620e9069a37b55"
+=======
+  revision = "0b98a3683648a519a79add6bbb7c481bb5a92546"
+  version = "v0.2"
+>>>>>>> Stashed changes
 
 [[projects]]
   name = "github.com/go-chi/chi"

@@ -66,16 +66,17 @@ func NewWeb(logger *logrus.Entry, db db.DB, cache http.RoundTripper, router chi.
 	router.Route("/console", func(router chi.Router) {
 		router.Use(web.RequireLogin)
 		router.Get("/", web.ConsoleHomeHandler)
+		router.Get("/filters", web.ConsoleFiltersHandler)
 		router.Get("/events", web.ConsoleEventsHandler)
 	})
 
 	return nil
 }
 
-func (web *Web) render(w http.ResponseWriter, template string, data interface{}) {
+func (web *Web) render(w http.ResponseWriter, logger *logrus.Entry, template string, data interface{}) {
 	buf := &bytes.Buffer{}
 	if err := web.templates.ExecuteTemplate(buf, template, data); err != nil {
-		web.logger.WithField("template", template).WithError(err).Error("could not execute template")
+		logger.WithField("template", template).WithError(err).Error("could not execute template")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -84,7 +85,8 @@ func (web *Web) render(w http.ResponseWriter, template string, data interface{})
 
 // HomeHandler is the handler to view the console page.
 func (web *Web) HomeHandler(w http.ResponseWriter, r *http.Request) {
-	web.render(w, "home.tmpl", nil)
+	logger := web.logger.WithField("requestURI", r.RequestURI)
+	web.render(w, logger, "home.tmpl", nil)
 }
 
 const ghOAuthStateKey = "ghOAuthState"
