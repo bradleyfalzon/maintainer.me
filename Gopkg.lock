@@ -14,15 +14,10 @@
   revision = "f36d272d74ecae3d61058d91dc7401715b044ca1"
 
 [[projects]]
-  branch = "master"
   name = "github.com/bradleyfalzon/ghfilter"
   packages = ["."]
-<<<<<<< Updated upstream
-  revision = "588f9345fe43ceb865e232aed1620e9069a37b55"
-=======
   revision = "0b98a3683648a519a79add6bbb7c481bb5a92546"
   version = "v0.2"
->>>>>>> Stashed changes
 
 [[projects]]
   name = "github.com/go-chi/chi"
@@ -103,12 +98,6 @@
   version = "v0.8.0"
 
 [[projects]]
-  name = "github.com/pressly/chi"
-  packages = ["."]
-  revision = "967844826e58cf31213a7dfb82455d242ad85101"
-  version = "v3.0.0"
-
-[[projects]]
   branch = "master"
   name = "github.com/rubenv/sql-migrate"
   packages = [".","sqlparse"]
@@ -147,6 +136,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "76c495b889ef64093f5b6e7240e5d6331d693f62c09cbe9f03866be0787a70d5"
+  inputs-digest = "b34e981c17205ebdab41db9363d87968b50656fc48269b868fc5d90962fef463"
   solver-name = "gps-cdcl"
   solver-version = 1
