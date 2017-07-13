@@ -4,6 +4,26 @@
 
 <p>Use filters to keep or discard events that don't interest you.</p>
 
+<div>
+	<fieldset class="form-group row">
+		<legend class="col-form-legend col-sm-2">Default Action</legend>
+		<div class="col-sm-10">
+			<div class="form-check">
+				<label class="form-check-label">
+					<input class="form-check-input" type="radio" name="gridRadios" id="gridRadios2" value="option2" checked>
+					Discard event
+				</label>
+			</div>
+			<div class="form-check disabled">
+				<label class="form-check-label">
+					<input class="form-check-input" type="radio" name="gridRadios" id="gridRadios3" value="option3" disabled="">
+					Keep event
+				</label>
+			</div>
+		</div>
+	</fieldset>
+</div>
+
 <style>
 .filter {
     border: 1px solid #d7d7d7;
@@ -53,12 +73,6 @@
 
         <div class="or">- or -</div>
     {{ end }}
-</div>
-
-<div class="or">- if none match -</div>
-
-<div class="default">
-    <span class="btn bg-danger text-white">discard event</div>
 </div>
 
 {{ template "console-footer" . }}
