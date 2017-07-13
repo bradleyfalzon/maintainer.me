@@ -21,6 +21,8 @@ type DB interface {
 	User(userID int) (*User, error)
 	// UsersFilters returns all filters for a User ID.
 	UsersFilters(userID int) ([]ghfilter.Filter, error)
+	// Filter returns a single filter from the database, returns nil if no filter found.
+	Filter(filterID int) (*Filter, error)
 	// SetUsersNextUpdate
 	SetUsersPollResult(userID int, lastCreatedAt time.Time, nextUpdate time.Time) error
 	// GitHubLogin logs a user in via GitHub, if a user already exists with the same
@@ -29,7 +31,7 @@ type DB interface {
 }
 
 type User struct {
-	ID int
+	ID int `db:"id"`
 
 	Email          string `db:"email"`
 	GitHubID       int    `db:"github_id"`
@@ -39,6 +41,34 @@ type User struct {
 
 	EventLastCreatedAt time.Time // the latest created at event for the customer
 	EventNextPoll      time.Time // time when the next update should occur
+}
+
+// Filter represents a single filter from the filters table.
+type Filter struct {
+	ID int `db:"id"`
+
+	Conditions []Condition
+}
+
+// GHFilter returns a ghfilter.Filter.
+func (f *Filter) GHFilter() *ghfilter.Filter {
+	panic("TODO")
+}
+
+// Condition represents a single condition from the conditions table.
+type Condition struct {
+	id                         int    `db:"id"`
+	Negate                     bool   `db:"negate"`
+	Type                       string `db:"type"`
+	PayloadAction              string `db:"payload_action"`
+	PayloadIssueLabel          string `db:"payload_issue_label"`
+	PayloadIssueMilestoneTitle string `db:"payload_issue_milestone_title"`
+	PayloadIssueTitleRegexp    string `db:"payload_issue_title_regexp"`
+	PayloadIssueBodyRegexp     string `db:"payload_issue_body_regexp"`
+	ComparePublic              bool   `db:"compare_public"`
+	Public                     bool   `db:"public"`
+	OrganizationID             int    `db:"organization_id"`
+	RepositoryID               int    `db:"repository_id"`
 }
 
 type SQLDB struct {
@@ -114,6 +144,28 @@ func (db *SQLDB) UsersFilters(userID int) ([]ghfilter.Filter, error) {
 			},
 		},
 	}, nil
+}
+
+// Filter implements the DB interface.
+func (db *SQLDB) Filter(filterID int) (*Filter, error) {
+	filter := &Filter{}
+	err := db.sqlx.Get(filter, `SELECT id FROM filters WHERE id = ?`, filterID)
+	switch {
+	case err == sql.ErrNoRows:
+		return nil, nil
+	case err != nil:
+		return nil, errors.Wrap(err, "could not select from filters")
+	}
+
+	err = db.sqlx.Select(&filter.Conditions, `SELECT * FROM conditions WHERE filter_id = ?`, filterID)
+	switch {
+	case err == sql.ErrNoRows:
+	// No filters is acceptable, so ignore the error.
+	case err != nil:
+		return nil, errors.Wrap(err, "could not select from filters")
+	}
+
+	return filter, nil
 }
 
 // SetUsersPollResult implements the DB interface.
