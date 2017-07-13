@@ -18,12 +18,12 @@ import (
 	"github.com/bradleyfalzon/maintainer.me/events"
 	"github.com/bradleyfalzon/maintainer.me/notifier"
 	"github.com/bradleyfalzon/maintainer.me/web"
+	"github.com/go-chi/chi"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gregjones/httpcache"
 	"github.com/gregjones/httpcache/diskcache"
 	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
-	"github.com/pressly/chi"
 	migrate "github.com/rubenv/sql-migrate"
 )
 

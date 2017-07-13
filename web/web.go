@@ -13,10 +13,10 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/alexedwards/scs/session"
 	"github.com/bradleyfalzon/maintainer.me/db"
+	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/google/go-github/github"
 	"github.com/google/uuid"
-	"github.com/pressly/chi"
 )
 
 type Web struct {
