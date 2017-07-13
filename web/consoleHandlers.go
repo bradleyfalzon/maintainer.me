@@ -107,14 +107,7 @@ func (web *Web) ConsoleFiltersHandler(w http.ResponseWriter, r *http.Request) {
 
 	logger = logger.WithField("userID", userID)
 
-	user, err := web.db.User(userID)
-	if err != nil {
-		logger.WithError(err).Error("could not get user")
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-
-	filters, err := web.db.UsersFilters(user.ID)
+	filters, err := web.db.UsersFilters(userID)
 	if err != nil {
 		logger.WithError(err).Error("could not get user's filters")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
