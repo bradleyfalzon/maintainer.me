@@ -25,8 +25,8 @@ type DB interface {
 	Filter(filterID int) (*Filter, error)
 	// Condition returns a single condition from the database, returns nil if no condition found.
 	Condition(conditionID int) (*Condition, error)
-	// ConditionDelete deletes a condition from the database.
-	ConditionDelete(conditionID int) error
+	// ConditionDelete deletes a userID's condition from the database.
+	ConditionDelete(userID, conditionID int) error
 	// SetUsersNextUpdate
 	SetUsersPollResult(userID int, lastCreatedAt time.Time, nextUpdate time.Time) error
 	// GitHubLogin logs a user in via GitHub, if a user already exists with the same
@@ -216,8 +216,8 @@ func (db *SQLDB) Condition(conditionID int) (*Condition, error) {
 }
 
 // ConditionDelete implements the DB interface.
-func (db *SQLDB) ConditionDelete(conditionID int) error {
-	_, err := db.sqlx.Exec(`DELETE FROM conditions WHERE id = ?`, conditionID)
+func (db *SQLDB) ConditionDelete(userID, conditionID int) error {
+	_, err := db.sqlx.Exec(`DELETE c FROM conditions c JOIN filters f ON c.filter_id = f.id WHERE f.user_id = ? AND c.id = ?`, userID, conditionID)
 	return errors.Wrap(err, "could not delete condition")
 }
 

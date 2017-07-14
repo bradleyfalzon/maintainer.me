@@ -1,7 +1,6 @@
 package web
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -198,43 +197,10 @@ func (web *Web) ConsoleConditionDeleteHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	condition, err := web.db.Condition(int(conditionID))
-	if err != nil {
-		logger.WithError(err).Errorf("could not get condition %v", condition)
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-
-	if condition == nil {
-		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
-		return
-	}
-
-	filter, err := web.db.Filter(condition.FilterID)
-	if err != nil {
-		logger.WithError(err).Errorf("could not get filter %v", condition.FilterID)
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-
-	if filter == nil {
-		logger.Errorf("could not find filter for condition") // this should never happen due to foreign keys
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-
-	if filter.UserID != userID {
-		logger.Infof("filter user ID %d does not match session user ID %d", filter.UserID, userID)
-		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
-		return
-	}
-
-	err = web.db.ConditionDelete(int(conditionID))
+	err = web.db.ConditionDelete(userID, int(conditionID))
 	if err != nil {
 		logger.WithError(err).Error("could not delete condition")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-
-	http.Redirect(w, r, fmt.Sprintf("/console/filters/%d", filter.ID), http.StatusFound)
 }
