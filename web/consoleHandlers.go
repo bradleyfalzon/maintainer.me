@@ -1,12 +1,17 @@
 package web
 
 import (
+	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/alexedwards/scs/session"
 	"github.com/bradleyfalzon/ghfilter"
+	"github.com/bradleyfalzon/maintainer.me/db"
 	"github.com/bradleyfalzon/maintainer.me/events"
+	"github.com/go-chi/chi"
 )
 
 // RequireLogin is middleware that loads a user's session and they
@@ -120,4 +125,116 @@ func (web *Web) ConsoleFiltersHandler(w http.ResponseWriter, r *http.Request) {
 	}{"Filters - Maintainer.Me", filters}
 
 	web.render(w, logger, "console-filters.tmpl", page)
+}
+
+// ConsoleFilterHandler is a handler to view a single user's filter.
+func (web *Web) ConsoleFilterHandler(w http.ResponseWriter, r *http.Request) {
+	logger := web.logger.WithField("requestURI", r.RequestURI)
+	userID, err := session.GetInt(r, "userID")
+	if err != nil {
+		logger.WithError(err).Error("could not userID from session")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	logger = logger.WithFields(logrus.Fields{
+		"userID":   userID,
+		"filterID": chi.URLParam(r, "filterID"),
+	})
+
+	filterID, err := strconv.ParseInt(chi.URLParam(r, "filterID"), 10, 32)
+	if err != nil {
+		logger.WithError(err).Error("could not parse filterID from URL")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	filter, err := web.db.Filter(int(filterID))
+	if err != nil {
+		logger.WithError(err).Errorf("could not get filter %v", filterID)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	if filter == nil {
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+
+	if filter.UserID != userID {
+		logger.Infof("filter user ID %d does not match session user ID %d", filter.UserID, userID)
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+
+	page := struct {
+		Title  string
+		Filter *db.Filter
+	}{"Filter - Maintainer.Me", filter}
+
+	web.render(w, logger, "console-filter.tmpl", page)
+
+}
+
+// ConsoleConditionDeleteHandler deletes a condition.
+func (web *Web) ConsoleConditionDeleteHandler(w http.ResponseWriter, r *http.Request) {
+	logger := web.logger.WithField("requestURI", r.RequestURI)
+	userID, err := session.GetInt(r, "userID")
+	if err != nil {
+		logger.WithError(err).Error("could not userID from session")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	logger = logger.WithFields(logrus.Fields{
+		"userID":      userID,
+		"conditionID": chi.URLParam(r, "conditionID"),
+	})
+
+	conditionID, err := strconv.ParseInt(chi.URLParam(r, "conditionID"), 10, 32)
+	if err != nil {
+		logger.WithError(err).Error("could not parse filterID from URL")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	condition, err := web.db.Condition(int(conditionID))
+	if err != nil {
+		logger.WithError(err).Errorf("could not get condition %v", condition)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	if condition == nil {
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+
+	filter, err := web.db.Filter(condition.FilterID)
+	if err != nil {
+		logger.WithError(err).Errorf("could not get filter %v", condition.FilterID)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	if filter == nil {
+		logger.Errorf("could not find filter for condition") // this should never happen due to foreign keys
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	if filter.UserID != userID {
+		logger.Infof("filter user ID %d does not match session user ID %d", filter.UserID, userID)
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+
+	err = web.db.ConditionDelete(int(conditionID))
+	if err != nil {
+		logger.WithError(err).Error("could not delete condition")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/console/filters/%d", filter.ID), http.StatusFound)
 }

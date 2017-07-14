@@ -31,6 +31,10 @@
     margin-bottom: 0.5em;
 }
 
+.filter .options {
+    text-align: center;
+}
+
 .filter .conditions {
     margin-bottom: 0;
 }
@@ -48,24 +52,23 @@
 .filters>.or:last-child {
     display: none;
 }
-
-.default {
-    text-align: center;
-}
 </style>
 
 <div class="filters">
     {{ range .Filters }}
         <div class="filter">
             <div class="row">
-                <div class="col-9">
+				<div class="col-2 options">
+                    <a href="/console/filters/1">Edit</a>
+				</div>
+                <div class="col-8">
                     <ol class="conditions">
                         {{ range .Conditions }}
                             <li class="condition">{{ .String }}</li>
                         {{ end }}
                     </ol>
                 </div>
-                <div class="col-3">
+                <div class="col-2">
                     <div class="action bg-success text-white">Keep event</div>
                 </div>
             </div>

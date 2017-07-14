@@ -1,0 +1,70 @@
+{{ template "console-header" . }}
+
+<h1>Edit Filter <small>{{ .Filter.ID }}</small></h1>
+
+<form method="post">
+    <table class="table">
+        <thead>
+            <tr>
+                <th class="condition">Condition</th>
+                <th class="options">Options</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{ range .Filter.Conditions }}
+                <tr>
+                    <td class="condition">{{ .String }}</td>
+                    <td class="options"><a data-condition-id="{{ .ID }}" class="delete" href="#">Delete</a></td>
+                </tr>
+            </tr>
+            {{ end }}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td>
+                    <label><input type="checkbox" name="negate" value="1"> Negate</label>
+                    <select name="field">
+                        <option value="Type">Type</option>
+                        <option value="PayloadAction">Action</option>
+                        <option value="PayloadIssueLabel">Issue Label</option>
+                        <option value="PayloadIssueMilestoneTitle">Milestone Title</option>
+                        <option value="PayloadIssueTitleRegexp">Title Regexp</option>
+                        <option value="PayloadIssueBodyRegexp">Body Regexp</option>
+                        <option value="Public">Public</option>
+                        <option value="OrganizationID">Organization ID</option>
+                        <option value="RepositoryID">Respository ID</option>
+                    </select>
+                    is
+                    <input type="text">
+                </td>
+                <td>
+                    <button type="submit" value="Submit" class="btn btn-success">Add</button>
+                </td>
+            </tr>
+        </tfoot>
+    </table>
+</form>
+
+<script>
+var deletes = document.getElementsByClassName('delete');
+
+Array.from(deletes).forEach(function(e) {
+    e.addEventListener('click', confirmDelete)
+});
+
+function confirmDelete(e) {
+    e.preventDefault();
+    var deleteURL = '/console/conditions/'+this.getAttribute("data-condition-id");
+    axios.delete(deleteURL, {
+        'ConditionID': this.getAttribute("data-condition-id")
+    })
+    .then(function (response) {
+        window.location.reload();
+    })
+    .catch(function (error) {
+        alert(error);
+    });
+}
+</script>
+
+{{ template "console-footer" . }}

@@ -59,6 +59,10 @@ func NewWeb(logger *logrus.Entry, db db.DB, cache http.RoundTripper, router chi.
 	router.Use(middleware.DefaultCompress)
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.NoCache)
+
+	// TODO remove Handler from name
+	// TODO split web into web and console
+
 	router.Get("/", web.HomeHandler)
 	router.Get("/login", web.LoginHandler)
 	router.Get("/login/callback", web.LoginCallbackHandler)
@@ -67,6 +71,8 @@ func NewWeb(logger *logrus.Entry, db db.DB, cache http.RoundTripper, router chi.
 		router.Use(web.RequireLogin)
 		router.Get("/", web.ConsoleHomeHandler)
 		router.Get("/filters", web.ConsoleFiltersHandler)
+		router.Get("/filters/{filterID}", web.ConsoleFilterHandler)
+		router.Delete("/conditions/{conditionID}", web.ConsoleConditionDeleteHandler)
 		router.Get("/events", web.ConsoleEventsHandler)
 	})
 

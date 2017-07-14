@@ -23,6 +23,10 @@ type DB interface {
 	UsersFilters(userID int) ([]ghfilter.Filter, error)
 	// Filter returns a single filter from the database, returns nil if no filter found.
 	Filter(filterID int) (*Filter, error)
+	// Condition returns a single condition from the database, returns nil if no condition found.
+	Condition(conditionID int) (*Condition, error)
+	// ConditionDelete deletes a condition from the database.
+	ConditionDelete(conditionID int) error
 	// SetUsersNextUpdate
 	SetUsersPollResult(userID int, lastCreatedAt time.Time, nextUpdate time.Time) error
 	// GitHubLogin logs a user in via GitHub, if a user already exists with the same
@@ -30,7 +34,14 @@ type DB interface {
 	GitHubLogin(ctx context.Context, email string, githubID int, githubLogin string, token *oauth2.Token) (userID int, err error)
 }
 
+type Dates struct {
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
+}
+
 type User struct {
+	Dates
+
 	ID int `db:"id"`
 
 	Email          string `db:"email"`
@@ -45,7 +56,9 @@ type User struct {
 
 // Filter represents a single filter from the filters table.
 type Filter struct {
-	ID int `db:"id"`
+	Dates
+	ID     int `db:"id"`
+	UserID int `db:"user_id"`
 
 	Conditions []Condition
 }
@@ -57,7 +70,10 @@ func (f *Filter) GHFilter() *ghfilter.Filter {
 
 // Condition represents a single condition from the conditions table.
 type Condition struct {
-	id                         int    `db:"id"`
+	Dates
+
+	ID                         int    `db:"id"`
+	FilterID                   int    `db:"filter_id"`
 	Negate                     bool   `db:"negate"`
 	Type                       string `db:"type"`
 	PayloadAction              string `db:"payload_action"`
@@ -69,6 +85,24 @@ type Condition struct {
 	Public                     bool   `db:"public"`
 	OrganizationID             int    `db:"organization_id"`
 	RepositoryID               int    `db:"repository_id"`
+}
+
+func (c Condition) String() string {
+	// TODO this isn't right at all
+	ghc := ghfilter.Condition{
+		Negate:                     c.Negate,
+		Type:                       c.Type,
+		PayloadAction:              c.PayloadAction,
+		PayloadIssueLabel:          c.PayloadIssueLabel,
+		PayloadIssueMilestoneTitle: c.PayloadIssueMilestoneTitle,
+		PayloadIssueTitleRegexp:    c.PayloadIssueTitleRegexp,
+		PayloadIssueBodyRegexp:     c.PayloadIssueBodyRegexp,
+		ComparePublic:              c.ComparePublic,
+		Public:                     c.Public,
+		OrganizationID:             c.OrganizationID,
+		RepositoryID:               c.RepositoryID,
+	}
+	return ghc.String()
 }
 
 type SQLDB struct {
@@ -149,7 +183,7 @@ func (db *SQLDB) UsersFilters(userID int) ([]ghfilter.Filter, error) {
 // Filter implements the DB interface.
 func (db *SQLDB) Filter(filterID int) (*Filter, error) {
 	filter := &Filter{}
-	err := db.sqlx.Get(filter, `SELECT id FROM filters WHERE id = ?`, filterID)
+	err := db.sqlx.Get(filter, `SELECT id, user_id, created_at, updated_at FROM filters WHERE id = ?`, filterID)
 	switch {
 	case err == sql.ErrNoRows:
 		return nil, nil
@@ -166,6 +200,25 @@ func (db *SQLDB) Filter(filterID int) (*Filter, error) {
 	}
 
 	return filter, nil
+}
+
+// Condition implements the DB interface.
+func (db *SQLDB) Condition(conditionID int) (*Condition, error) {
+	condition := &Condition{}
+	err := db.sqlx.Get(condition, `SELECT * FROM conditions WHERE id = ?`, conditionID)
+	switch {
+	case err == sql.ErrNoRows:
+		return nil, nil
+	case err != nil:
+		return nil, errors.Wrap(err, "could not select from conditions")
+	}
+	return condition, nil
+}
+
+// ConditionDelete implements the DB interface.
+func (db *SQLDB) ConditionDelete(conditionID int) error {
+	_, err := db.sqlx.Exec(`DELETE FROM conditions WHERE id = ?`, conditionID)
+	return errors.Wrap(err, "could not delete condition")
 }
 
 // SetUsersPollResult implements the DB interface.
