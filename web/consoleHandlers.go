@@ -11,6 +11,7 @@ import (
 	"github.com/bradleyfalzon/maintainer.me/db"
 	"github.com/bradleyfalzon/maintainer.me/events"
 	"github.com/go-chi/chi"
+	schema "github.com/gorilla/Schema"
 )
 
 // RequireLogin is middleware that loads a user's session and they
@@ -172,7 +173,6 @@ func (web *Web) ConsoleFilterHandler(w http.ResponseWriter, r *http.Request) {
 	}{"Filter - Maintainer.Me", filter}
 
 	web.render(w, logger, "console-filter.tmpl", page)
-
 }
 
 // ConsoleConditionDeleteHandler deletes a condition.
@@ -192,7 +192,7 @@ func (web *Web) ConsoleConditionDeleteHandler(w http.ResponseWriter, r *http.Req
 
 	conditionID, err := strconv.ParseInt(chi.URLParam(r, "conditionID"), 10, 32)
 	if err != nil {
-		logger.WithError(err).Error("could not parse filterID from URL")
+		logger.WithError(err).Error("could not parse conditionID from URL")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -203,4 +203,80 @@ func (web *Web) ConsoleConditionDeleteHandler(w http.ResponseWriter, r *http.Req
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
+
+	logger.Info("successfully deleted condition")
+}
+
+// ConsoleConditionCreateHandler deletes a condition.
+func (web *Web) ConsoleConditionCreateHandler(w http.ResponseWriter, r *http.Request) {
+	logger := web.logger.WithField("requestURI", r.RequestURI)
+	userID, err := session.GetInt(r, "userID")
+	if err != nil {
+		logger.WithError(err).Error("could not userID from session")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	r.ParseForm()
+	logger = logger.WithFields(logrus.Fields{
+		"userID":   userID,
+		"filterID": r.FormValue("filterID"),
+	})
+
+	filterID, err := strconv.ParseInt(r.FormValue("filterID"), 10, 32)
+	if err != nil {
+		logger.WithError(err).Error("could not parse filterID from URL")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	// Check permissions
+
+	filter, err := web.db.Filter(int(filterID))
+	if err != nil {
+		logger.WithError(err).Error("could not get filter")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	if filter == nil {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+
+	if filter.UserID != userID {
+		logger.Infof("filter user ID %d does not match session user ID %d", filter.UserID, userID)
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+
+	// Scan user data into struct
+
+	var (
+		condition = &db.Condition{}
+		postForm  = map[string][]string{r.FormValue("field"): []string{r.FormValue("value")}}
+		decoder   = schema.NewDecoder()
+	)
+
+	err = decoder.Decode(condition, postForm)
+	if err != nil {
+		logger.WithError(err).Error("could not decode form")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	// Overwrite the condition struct with the filterID we know belongs
+	// to the user, else they might have tried to overwrite it.
+	condition.FilterID = int(filterID)
+
+	conditionID, err := web.db.ConditionCreate(condition)
+	if err != nil {
+		logger.WithError(err).Error("could not delete condition")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	logger.WithField("condition", conditionID).Info("successfully added condition")
+
+	http.Redirect(w, r, r.Header.Get("referer"), http.StatusFound)
 }

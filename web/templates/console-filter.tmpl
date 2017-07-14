@@ -2,7 +2,8 @@
 
 <h1>Edit Filter <small>{{ .Filter.ID }}</small></h1>
 
-<form method="post">
+<form method="post" action="/console/conditions/">
+    <input type="hidden" name="filterID" value="{{ .Filter.ID }}">
     <table class="table">
         <thead>
             <tr>
@@ -35,7 +36,7 @@
                         <option value="RepositoryID">Respository ID</option>
                     </select>
                     is
-                    <input type="text">
+                    <input type="text" name="value">
                 </td>
                 <td>
                     <button type="submit" value="Submit" class="btn btn-success">Add</button>

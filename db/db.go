@@ -27,6 +27,8 @@ type DB interface {
 	Condition(conditionID int) (*Condition, error)
 	// ConditionDelete deletes a userID's condition from the database.
 	ConditionDelete(userID, conditionID int) error
+	// ConditionCreate inserts a condition into the database.
+	ConditionCreate(*Condition) (conditionID int, err error)
 	// SetUsersNextUpdate
 	SetUsersPollResult(userID int, lastCreatedAt time.Time, nextUpdate time.Time) error
 	// GitHubLogin logs a user in via GitHub, if a user already exists with the same
@@ -219,6 +221,28 @@ func (db *SQLDB) Condition(conditionID int) (*Condition, error) {
 func (db *SQLDB) ConditionDelete(userID, conditionID int) error {
 	_, err := db.sqlx.Exec(`DELETE c FROM conditions c JOIN filters f ON c.filter_id = f.id WHERE f.user_id = ? AND c.id = ?`, userID, conditionID)
 	return errors.Wrap(err, "could not delete condition")
+}
+
+// ConditionCreate implements the DB interface.
+func (db *SQLDB) ConditionCreate(condition *Condition) (int, error) {
+	result, err := db.sqlx.NamedExec(`
+INSERT INTO conditions (
+	filter_id, negate, type, payload_action, payload_issue_label, payload_issue_milestone_title, payload_issue_title_regexp,
+	payload_issue_body_regexp, public, organization_id, repository_id
+) VALUES (
+	:filter_id, :negate, :type, :payload_action, :payload_issue_label, :payload_issue_milestone_title, :payload_issue_title_regexp,
+	:payload_issue_body_regexp, :public, :organization_id, :repository_id
+)`, condition)
+	if err != nil {
+		return 0, errors.Wrap(err, "could not insert condition")
+	}
+
+	conditionID, err := result.LastInsertId()
+	if err != nil {
+		return 0, errors.Wrap(err, "could not get condition's ID")
+	}
+
+	return int(conditionID), nil
 }
 
 // SetUsersPollResult implements the DB interface.
