@@ -253,8 +253,11 @@ func (web *Web) ConsoleConditionCreateHandler(w http.ResponseWriter, r *http.Req
 
 	var (
 		condition = &db.Condition{}
-		postForm  = map[string][]string{r.FormValue("field"): []string{r.FormValue("value")}}
-		decoder   = schema.NewDecoder()
+		postForm  = map[string][]string{
+			"Negate":             []string{r.FormValue("negate")},
+			r.FormValue("field"): []string{r.FormValue("value")},
+		}
+		decoder = schema.NewDecoder()
 	)
 
 	err = decoder.Decode(condition, postForm)
