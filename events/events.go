@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/bradleyfalzon/ghfilter"
+	"github.com/bradleyfalzon/maintainer.me/db"
 	"github.com/google/go-github/github"
 	"github.com/pkg/errors"
 )
@@ -67,7 +67,7 @@ func haveObserved(observed, query time.Time) bool {
 	return !observed.IsZero() && (query.Before(observed) || query.Equal(observed))
 }
 
-func (e Events) Filter(filters []ghfilter.Filter) {
+func (e Events) Filter(filters []db.Filter) {
 	for _, event := range e {
 		event.Filter(filters)
 	}
@@ -79,8 +79,8 @@ type Event struct {
 	Type      string    // Type such as "CommitCommentEvent".
 	Public    bool      // Public is whether GitHub event was public.
 
-	// Excluded is true when an event has been filtered and should be excluded.
-	Excluded bool
+	// Discarded is true when an event has been filtered and should be ignored.
+	Discarded bool
 
 	Actor   string // Actor is the person who did an action, such as "bradleyfalzon".
 	Action  string // Action is the action performed on a subject, such as "commented".
@@ -220,12 +220,12 @@ func (e *Event) String() string {
 	return e.Title
 }
 
-func (e *Event) Filter(filters []ghfilter.Filter) {
+func (e *Event) Filter(filters []db.Filter) {
 	for _, filter := range filters {
 		if filter.Matches(e.RawEvent) {
-			e.Excluded = false
+			e.Discarded = filter.OnMatchDiscard
 			return
 		}
 	}
-	e.Excluded = true // Event did not match a filter.
+	e.Discarded = true // Event did not match a filter.
 }

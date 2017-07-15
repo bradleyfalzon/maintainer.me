@@ -59,7 +59,11 @@
                     </ol>
                 </div>
                 <div class="col-2 text-center align-self-center">
-                    <div class="bg-success text-white">Keep event</div>
+                    {{ if .OnMatchDiscard }}
+                        <div class="bg-danger text-white">Discard Event</div>
+                    {{ else }}
+                        <div class="bg-success text-white">Accept Event</div>
+                    {{ end }}
                 </div>
             </div>
         </div>

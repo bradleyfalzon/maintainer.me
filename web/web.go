@@ -72,6 +72,7 @@ func NewWeb(logger *logrus.Entry, db db.DB, cache http.RoundTripper, router chi.
 		router.Get("/", web.ConsoleHomeHandler)
 		router.Get("/filters", web.ConsoleFiltersHandler)
 		router.Get("/filters/{filterID}", web.ConsoleFilterHandler)
+		router.Post("/filters/{filterID}", web.ConsoleFilterUpdateHandler)
 		router.Delete("/conditions/{conditionID}", web.ConsoleConditionDeleteHandler) // doesn't redirect
 		router.Post("/conditions/", web.ConsoleConditionCreateHandler)                // redirects /shrug
 		router.Get("/events", web.ConsoleEventsHandler)

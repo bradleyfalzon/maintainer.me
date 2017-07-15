@@ -9,6 +9,7 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/bradleyfalzon/ghfilter"
+	"github.com/google/go-github/github"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 )
@@ -23,6 +24,8 @@ type DB interface {
 	UsersFilters(userID int) ([]Filter, error)
 	// Filter returns a single filter from the database, returns nil if no filter found.
 	Filter(filterID int) (*Filter, error)
+	// FilterUpdate updates a filter in the database.
+	FilterUpdate(*Filter) error
 	// Condition returns a single condition from the database, returns nil if no condition found.
 	Condition(conditionID int) (*Condition, error)
 	// ConditionDelete deletes a userID's condition from the database.
@@ -61,12 +64,15 @@ type Filter struct {
 	Dates
 	ID     int `db:"id"`
 	UserID int `db:"user_id"`
+	// If discard is true, the filter matching causes an event to be discarded
+	// instead of accepted.
+	OnMatchDiscard bool `db:"on_match_discard"`
 
 	Conditions []Condition
 }
 
-// GHFilter returns a ghfilter.Filter.
-func (f *Filter) GHFilter() ghfilter.Filter {
+// ghfilter returns a ghfilter.Filter.
+func (f *Filter) ghfilter() ghfilter.Filter {
 	var ghf ghfilter.Filter
 	for _, c := range f.Conditions {
 		ghf.Conditions = append(ghf.Conditions, c.GHCondition())
@@ -74,13 +80,10 @@ func (f *Filter) GHFilter() ghfilter.Filter {
 	return ghf
 }
 
-// GHFilters returns a []ghfilter.Filter for a given []Filter.
-func GHFilters(filters []Filter) []ghfilter.Filter {
-	ghfilters := make([]ghfilter.Filter, 0, len(filters))
-	for _, f := range filters {
-		ghfilters = append(ghfilters, f.GHFilter())
-	}
-	return ghfilters
+// Matches if filter matches an event.
+func (f *Filter) Matches(event *github.Event) bool {
+	ghf := f.ghfilter()
+	return ghf.Matches(event)
 }
 
 // Condition represents a single condition from the conditions table.
@@ -172,7 +175,7 @@ func (db *SQLDB) User(userID int) (*User, error) {
 // UsersFilters implements the DB interface.
 func (db *SQLDB) UsersFilters(userID int) ([]Filter, error) {
 	var filters []Filter
-	err := db.sqlx.Select(&filters, `SELECT id, user_id, created_at, updated_at FROM filters WHERE user_id = ?`, userID)
+	err := db.sqlx.Select(&filters, `SELECT id, user_id, on_match_discard, created_at, updated_at FROM filters WHERE user_id = ?`, userID)
 	switch {
 	case err == sql.ErrNoRows:
 		return nil, nil
@@ -196,7 +199,7 @@ func (db *SQLDB) UsersFilters(userID int) ([]Filter, error) {
 // Filter implements the DB interface.
 func (db *SQLDB) Filter(filterID int) (*Filter, error) {
 	filter := &Filter{}
-	err := db.sqlx.Get(filter, `SELECT id, user_id, created_at, updated_at FROM filters WHERE id = ?`, filterID)
+	err := db.sqlx.Get(filter, `SELECT id, user_id, on_match_discard, created_at, updated_at FROM filters WHERE id = ?`, filterID)
 	switch {
 	case err == sql.ErrNoRows:
 		return nil, nil
@@ -212,6 +215,12 @@ func (db *SQLDB) Filter(filterID int) (*Filter, error) {
 	}
 
 	return filter, nil
+}
+
+// FilterUpdate implements the DB interface.
+func (db *SQLDB) FilterUpdate(filter *Filter) error {
+	_, err := db.sqlx.Exec("UPDATE filters SET on_match_discard = ? WHERE id = ?", filter.OnMatchDiscard, filter.ID)
+	return errors.Wrapf(err, "could update filter %d", filter.ID)
 }
 
 // Condition implements the DB interface.

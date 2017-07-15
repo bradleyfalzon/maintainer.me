@@ -88,7 +88,7 @@ func (web *Web) ConsoleEventsHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-	allEvents.Filter(db.GHFilters(filters))
+	allEvents.Filter(filters)
 
 	page := struct {
 		Title  string
@@ -279,6 +279,62 @@ func (web *Web) ConsoleConditionCreateHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	logger.WithField("condition", conditionID).Info("successfully added condition")
+
+	http.Redirect(w, r, r.Header.Get("referer"), http.StatusFound)
+}
+
+// ConsoleFilterUpdateHandler updates a filter.
+func (web *Web) ConsoleFilterUpdateHandler(w http.ResponseWriter, r *http.Request) {
+	logger := web.logger.WithField("requestURI", r.RequestURI)
+	userID, err := session.GetInt(r, "userID")
+	if err != nil {
+		logger.WithError(err).Error("could not userID from session")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	logger = logger.WithFields(logrus.Fields{
+		"userID":   userID,
+		"filterID": chi.URLParam(r, "filterID"),
+	})
+
+	filterID, err := strconv.ParseInt(chi.URLParam(r, "filterID"), 10, 32)
+	if err != nil {
+		logger.WithError(err).Error("could not parse filterID from URL")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	filter, err := web.db.Filter(int(filterID))
+	if err != nil {
+		logger.WithError(err).Errorf("could not get filter %v", filterID)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	if filter == nil {
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+
+	if filter.UserID != userID {
+		logger.Infof("filter user ID %d does not match session user ID %d", filter.UserID, userID)
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+
+	// Update filter
+
+	filter.OnMatchDiscard = r.FormValue("onmatchdiscard") == "true"
+
+	err = web.db.FilterUpdate(filter)
+	if err != nil {
+		logger.WithError(err).Error("could not update filter")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	logger.Info("successfully updated filter")
 
 	http.Redirect(w, r, r.Header.Get("referer"), http.StatusFound)
 }

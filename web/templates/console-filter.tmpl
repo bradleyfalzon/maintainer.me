@@ -2,6 +2,13 @@
 
 <h1>Edit Filter <small>{{ .Filter.ID }}</small></h1>
 
+<p>
+    <form method="post" action="/console/filters/{{ .Filter.ID }}">
+        <label><input type="checkbox" name="onmatchdiscard" value="true" {{ if .Filter.OnMatchDiscard }}checked{{ end }}> On match discard event</label>
+        <button type="submit" value="Submit" class="btn btn-primary btn-sm">Submit</button>
+    </form>
+</p>
+
 <form method="post" action="/console/conditions/">
     <input type="hidden" name="filterID" value="{{ .Filter.ID }}">
     <table class="table">

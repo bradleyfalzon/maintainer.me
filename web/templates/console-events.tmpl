@@ -7,7 +7,7 @@
 <style>
 table { font-size:12px; }
 table tbody { font-weight: bold }
-table tr.excluded { color: #7d7d7d; font-style: italic; font-weight: normal; }
+table tr.discarded { color: #7d7d7d; font-style: italic; font-weight: normal; }
 </style>
 
 <table class="table table-sm">
@@ -20,7 +20,7 @@ table tr.excluded { color: #7d7d7d; font-style: italic; font-weight: normal; }
 	</thead>
 	<tbody>
 		{{ range .Events }}
-            <tr class={{ if .Excluded }}"excluded"{{ else }}"included"{{ end }}>
+            <tr class={{ if .Discarded }}"discarded"{{ else }}"accepted"{{ end }}>
 				<td>{{ .Type }}</td>
 				<td>{{ .Action }}</td>
 				<td>{{ .String }}</td>

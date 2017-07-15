@@ -132,11 +132,12 @@ func (p *Poller) PollUser(ctx context.Context, logger *logrus.Entry, user db.Use
 		}
 	}
 
-	events.Filter(db.GHFilters(filters))
+	//events.Filter(db.GHFilters(filters))
+	events.Filter(filters)
 
 	// Send notifications.
 	for _, event := range events {
-		if event.Excluded {
+		if event.Discarded {
 			continue
 		}
 		if err = p.notifier.Notify(event); err != nil {
