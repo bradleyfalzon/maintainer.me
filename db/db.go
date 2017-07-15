@@ -20,7 +20,7 @@ type DB interface {
 	// User returns a single user from the database, returns nil if no user was found.
 	User(userID int) (*User, error)
 	// UsersFilters returns all filters for a User ID.
-	UsersFilters(userID int) ([]ghfilter.Filter, error)
+	UsersFilters(userID int) ([]Filter, error)
 	// Filter returns a single filter from the database, returns nil if no filter found.
 	Filter(filterID int) (*Filter, error)
 	// Condition returns a single condition from the database, returns nil if no condition found.
@@ -66,8 +66,21 @@ type Filter struct {
 }
 
 // GHFilter returns a ghfilter.Filter.
-func (f *Filter) GHFilter() *ghfilter.Filter {
-	panic("TODO")
+func (f *Filter) GHFilter() ghfilter.Filter {
+	var ghf ghfilter.Filter
+	for _, c := range f.Conditions {
+		ghf.Conditions = append(ghf.Conditions, c.GHCondition())
+	}
+	return ghf
+}
+
+// GHFilters returns a []ghfilter.Filter for a given []Filter.
+func GHFilters(filters []Filter) []ghfilter.Filter {
+	ghfilters := make([]ghfilter.Filter, 0, len(filters))
+	for _, f := range filters {
+		ghfilters = append(ghfilters, f.GHFilter())
+	}
+	return ghfilters
 }
 
 // Condition represents a single condition from the conditions table.
@@ -89,9 +102,11 @@ type Condition struct {
 	RepositoryID               int    `db:"repository_id"`
 }
 
-func (c Condition) String() string {
-	// TODO this isn't right at all
-	ghc := ghfilter.Condition{
+// Condition and Filter should embed the other type.
+// and the SQLDB should create its own type to select out of the DB
+
+func (c Condition) GHCondition() ghfilter.Condition {
+	return ghfilter.Condition{
 		Negate:                     c.Negate,
 		Type:                       c.Type,
 		PayloadAction:              c.PayloadAction,
@@ -104,7 +119,10 @@ func (c Condition) String() string {
 		OrganizationID:             c.OrganizationID,
 		RepositoryID:               c.RepositoryID,
 	}
-	return ghc.String()
+}
+
+func (c Condition) String() string {
+	return c.GHCondition().String()
 }
 
 type SQLDB struct {
@@ -152,34 +170,27 @@ func (db *SQLDB) User(userID int) (*User, error) {
 }
 
 // UsersFilters implements the DB interface.
-func (db *SQLDB) UsersFilters(userID int) ([]ghfilter.Filter, error) {
-	return []ghfilter.Filter{
-		{
-			Conditions: []ghfilter.Condition{
-				{Type: "PullRequestEvent"},
-			},
-		},
-		{
-			Conditions: []ghfilter.Condition{
-				{Type: "CommitCommentEvent"},
-			},
-		},
-		{
-			Conditions: []ghfilter.Condition{
-				{Type: "IssuesEvent", PayloadAction: "opened"},
-			},
-		},
-		{
-			Conditions: []ghfilter.Condition{
-				{Type: "WatchEvent"},
-			},
-		},
-		{
-			Conditions: []ghfilter.Condition{
-				{Type: "PullRequestReviewCommentEvent"},
-			},
-		},
-	}, nil
+func (db *SQLDB) UsersFilters(userID int) ([]Filter, error) {
+	var filters []Filter
+	err := db.sqlx.Select(&filters, `SELECT id, user_id, created_at, updated_at FROM filters WHERE user_id = ?`, userID)
+	switch {
+	case err == sql.ErrNoRows:
+		return nil, nil
+	case err != nil:
+		return nil, errors.Wrap(err, "could not select from filters")
+	}
+
+	// I feel terrible that I've written this. Let's hope no-one else uses this service.
+	for i := range filters {
+		err = db.sqlx.Select(&filters[i].Conditions, `SELECT * FROM conditions WHERE filter_id = ?`, filters[i].ID)
+		switch {
+		case err == sql.ErrNoRows:
+		case err != nil:
+			return nil, errors.Wrap(err, "could not select from conditions")
+		}
+	}
+
+	return filters, nil
 }
 
 // Filter implements the DB interface.
@@ -196,9 +207,8 @@ func (db *SQLDB) Filter(filterID int) (*Filter, error) {
 	err = db.sqlx.Select(&filter.Conditions, `SELECT * FROM conditions WHERE filter_id = ?`, filterID)
 	switch {
 	case err == sql.ErrNoRows:
-	// No filters is acceptable, so ignore the error.
 	case err != nil:
-		return nil, errors.Wrap(err, "could not select from filters")
+		return nil, errors.Wrap(err, "could not select from conditions")
 	}
 
 	return filter, nil

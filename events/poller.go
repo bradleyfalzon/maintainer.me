@@ -132,7 +132,7 @@ func (p *Poller) PollUser(ctx context.Context, logger *logrus.Entry, user db.Use
 		}
 	}
 
-	events.Filter(filters)
+	events.Filter(db.GHFilters(filters))
 
 	// Send notifications.
 	for _, event := range events {

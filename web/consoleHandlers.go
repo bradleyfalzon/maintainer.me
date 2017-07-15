@@ -7,7 +7,6 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/alexedwards/scs/session"
-	"github.com/bradleyfalzon/ghfilter"
 	"github.com/bradleyfalzon/maintainer.me/db"
 	"github.com/bradleyfalzon/maintainer.me/events"
 	"github.com/go-chi/chi"
@@ -89,7 +88,7 @@ func (web *Web) ConsoleEventsHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-	allEvents.Filter(filters)
+	allEvents.Filter(db.GHFilters(filters))
 
 	page := struct {
 		Title  string
@@ -121,7 +120,7 @@ func (web *Web) ConsoleFiltersHandler(w http.ResponseWriter, r *http.Request) {
 
 	page := struct {
 		Title   string
-		Filters []ghfilter.Filter
+		Filters []db.Filter
 	}{"Filters - Maintainer.Me", filters}
 
 	web.render(w, logger, "console-filters.tmpl", page)
