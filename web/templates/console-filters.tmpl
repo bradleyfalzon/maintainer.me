@@ -31,23 +31,13 @@
     margin-bottom: 0.5em;
 }
 
-.filter .options {
-    text-align: center;
-}
-
 .filter .conditions {
     margin-bottom: 0;
 }
 
-.filter .action {
-    text-align: center;
-}
+.filter .condition:last-child .and { display: none; } /* Remove last "and" from list of conditions */
 
-.or {
-    color: #868686;
-    text-align: center;
-    margin-bottom: 0.5em;
-}
+.or { margin-bottom: 0.5em; }
 
 .filters>.or:last-child {
     display: none;
@@ -58,23 +48,23 @@
     {{ range .Filters }}
         <div class="filter">
             <div class="row">
-				<div class="col-2 options">
+				<div class="col-2 text-center align-self-center">
                     <a href="/console/filters/{{ .ID }}">Edit</a>
 				</div>
                 <div class="col-8">
                     <ol class="conditions">
                         {{ range .Conditions }}
-                            <li class="condition">{{ .String }}</li>
+                            <li class="condition">{{ .String }}<span class="text-muted and">; and</span></li>
                         {{ end }}
                     </ol>
                 </div>
-                <div class="col-2">
-                    <div class="action bg-success text-white">Keep event</div>
+                <div class="col-2 text-center align-self-center">
+                    <div class="bg-success text-white">Keep event</div>
                 </div>
             </div>
         </div>
 
-        <div class="or">- or -</div>
+        <div class="or text-muted text-center">- or -</div>
     {{ end }}
 </div>
 
