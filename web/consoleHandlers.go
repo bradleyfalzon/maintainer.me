@@ -40,8 +40,8 @@ func (web *Web) RequireLogin(next http.Handler) http.Handler {
 	})
 }
 
-// ConsoleHomeHandler is the handler to view the console page.
-func (web *Web) ConsoleHomeHandler(w http.ResponseWriter, r *http.Request) {
+// ConsoleHome is the handler to view the console page.
+func (web *Web) ConsoleHome(w http.ResponseWriter, r *http.Request) {
 	logger := web.logger.WithField("requestURI", r.RequestURI)
 	_, err := session.GetString(r, "username")
 	if err != nil {
@@ -52,8 +52,8 @@ func (web *Web) ConsoleHomeHandler(w http.ResponseWriter, r *http.Request) {
 	web.render(w, logger, "console-home.tmpl", nil)
 }
 
-// ConsoleEventsHandler is a handler to view events that have been filtered.
-func (web *Web) ConsoleEventsHandler(w http.ResponseWriter, r *http.Request) {
+// ConsoleEvents is a handler to view events that have been filtered.
+func (web *Web) ConsoleEvents(w http.ResponseWriter, r *http.Request) {
 	logger := web.logger.WithField("requestURI", r.RequestURI)
 	userID, err := session.GetInt(r, "userID")
 	if err != nil {
@@ -99,8 +99,8 @@ func (web *Web) ConsoleEventsHandler(w http.ResponseWriter, r *http.Request) {
 	web.render(w, logger, "console-events.tmpl", page)
 }
 
-// ConsoleFiltersHandler is a handler to view user's filters.
-func (web *Web) ConsoleFiltersHandler(w http.ResponseWriter, r *http.Request) {
+// ConsoleFilters is a handler to view user's filters.
+func (web *Web) ConsoleFilters(w http.ResponseWriter, r *http.Request) {
 	logger := web.logger.WithField("requestURI", r.RequestURI)
 	userID, err := session.GetInt(r, "userID")
 	if err != nil {
@@ -134,8 +134,8 @@ func (web *Web) ConsoleFiltersHandler(w http.ResponseWriter, r *http.Request) {
 	web.render(w, logger, "console-filters.tmpl", page)
 }
 
-// ConsoleFiltersUpdateHandler updates filter list.
-func (web *Web) ConsoleFiltersUpdateHandler(w http.ResponseWriter, r *http.Request) {
+// ConsoleFiltersUpdate updates filter list.
+func (web *Web) ConsoleFiltersUpdate(w http.ResponseWriter, r *http.Request) {
 	logger := web.logger.WithField("requestURI", r.RequestURI)
 	userID, err := session.GetInt(r, "userID")
 	if err != nil {
@@ -167,8 +167,8 @@ func (web *Web) ConsoleFiltersUpdateHandler(w http.ResponseWriter, r *http.Reque
 	http.Redirect(w, r, r.Header.Get("referer"), http.StatusFound)
 }
 
-// ConsoleFilterHandler is a handler to view a single user's filter.
-func (web *Web) ConsoleFilterHandler(w http.ResponseWriter, r *http.Request) {
+// ConsoleFilter is a handler to view a single user's filter.
+func (web *Web) ConsoleFilter(w http.ResponseWriter, r *http.Request) {
 	logger := web.logger.WithField("requestURI", r.RequestURI)
 	userID, err := session.GetInt(r, "userID")
 	if err != nil {
@@ -215,8 +215,8 @@ func (web *Web) ConsoleFilterHandler(w http.ResponseWriter, r *http.Request) {
 	web.render(w, logger, "console-filter.tmpl", page)
 }
 
-// ConsoleConditionDeleteHandler deletes a condition.
-func (web *Web) ConsoleConditionDeleteHandler(w http.ResponseWriter, r *http.Request) {
+// ConsoleConditionDelete deletes a condition.
+func (web *Web) ConsoleConditionDelete(w http.ResponseWriter, r *http.Request) {
 	logger := web.logger.WithField("requestURI", r.RequestURI)
 	userID, err := session.GetInt(r, "userID")
 	if err != nil {
@@ -247,8 +247,8 @@ func (web *Web) ConsoleConditionDeleteHandler(w http.ResponseWriter, r *http.Req
 	logger.Info("successfully deleted condition")
 }
 
-// ConsoleConditionCreateHandler deletes a condition.
-func (web *Web) ConsoleConditionCreateHandler(w http.ResponseWriter, r *http.Request) {
+// ConsoleConditionCreate deletes a condition.
+func (web *Web) ConsoleConditionCreate(w http.ResponseWriter, r *http.Request) {
 	logger := web.logger.WithField("requestURI", r.RequestURI)
 	userID, err := session.GetInt(r, "userID")
 	if err != nil {
@@ -324,8 +324,8 @@ func (web *Web) ConsoleConditionCreateHandler(w http.ResponseWriter, r *http.Req
 	http.Redirect(w, r, r.Header.Get("referer"), http.StatusFound)
 }
 
-// ConsoleFilterUpdateHandler updates a filter.
-func (web *Web) ConsoleFilterUpdateHandler(w http.ResponseWriter, r *http.Request) {
+// ConsoleFilterUpdate updates a filter.
+func (web *Web) ConsoleFilterUpdate(w http.ResponseWriter, r *http.Request) {
 	logger := web.logger.WithField("requestURI", r.RequestURI)
 	userID, err := session.GetInt(r, "userID")
 	if err != nil {

@@ -136,23 +136,22 @@ func run(logger *logrus.Logger) error {
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.NoCache)
 
-	// TODO remove Handler from name
 	// TODO split web into web and console
 
-	router.Get("/", web.HomeHandler)
-	router.Get("/login", web.LoginHandler)
-	router.Get("/login/callback", web.LoginCallbackHandler)
-	//router.Get("/logout", web.LogoutHandler)
+	router.Get("/", web.Home)
+	router.Get("/login", web.Login)
+	router.Get("/login/callback", web.LoginCallback)
+	//router.Get("/logout", web.Logout)
 	router.Route("/console", func(router chi.Router) {
 		router.Use(web.RequireLogin)
-		router.Get("/", web.ConsoleHomeHandler)
-		router.Get("/filters", web.ConsoleFiltersHandler)
-		router.Post("/filters", web.ConsoleFiltersUpdateHandler)
-		router.Get("/filters/{filterID}", web.ConsoleFilterHandler)
-		router.Post("/filters/{filterID}", web.ConsoleFilterUpdateHandler)
-		router.Delete("/conditions/{conditionID}", web.ConsoleConditionDeleteHandler) // doesn't redirect
-		router.Post("/conditions/", web.ConsoleConditionCreateHandler)                // redirects /shrug
-		router.Get("/events", web.ConsoleEventsHandler)
+		router.Get("/", web.ConsoleHome)
+		router.Get("/filters", web.ConsoleFilters)
+		router.Post("/filters", web.ConsoleFiltersUpdate)
+		router.Get("/filters/{filterID}", web.ConsoleFilter)
+		router.Post("/filters/{filterID}", web.ConsoleFilterUpdate)
+		router.Delete("/conditions/{conditionID}", web.ConsoleConditionDelete)
+		router.Post("/conditions/", web.ConsoleConditionCreate)
+		router.Get("/events", web.ConsoleEvents)
 	})
 
 	// HTTP Server

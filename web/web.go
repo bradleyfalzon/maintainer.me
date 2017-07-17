@@ -50,16 +50,16 @@ func (web *Web) render(w http.ResponseWriter, logger *logrus.Entry, template str
 	io.Copy(w, buf)
 }
 
-// HomeHandler is the handler to view the console page.
-func (web *Web) HomeHandler(w http.ResponseWriter, r *http.Request) {
+// Home is the handler to view the console page.
+func (web *Web) Home(w http.ResponseWriter, r *http.Request) {
 	logger := web.logger.WithField("requestURI", r.RequestURI)
 	web.render(w, logger, "home.tmpl", nil)
 }
 
 const ghOAuthStateKey = "ghOAuthState"
 
-// LoginHandler is the handler to view the console page.
-func (web *Web) LoginHandler(w http.ResponseWriter, r *http.Request) {
+// Login is the handler to view the console page.
+func (web *Web) Login(w http.ResponseWriter, r *http.Request) {
 	uuid := uuid.New()
 	session.PutString(r, ghOAuthStateKey, uuid.String())
 
@@ -67,9 +67,9 @@ func (web *Web) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
-// LoginCallbackHandler is the handler used by the login page during a callback
+// LoginCallback is the handler used by the login page during a callback
 // after the user has logged into service.
-func (web *Web) LoginCallbackHandler(w http.ResponseWriter, r *http.Request) {
+func (web *Web) LoginCallback(w http.ResponseWriter, r *http.Request) {
 	logger := web.logger.WithField("requestURI", r.RequestURI)
 	// Get and *remove* state stored in session.
 	sessionState, err := session.PopString(r, ghOAuthStateKey)
