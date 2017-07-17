@@ -61,7 +61,7 @@ func (p *Poller) Poll(ctx context.Context, interval time.Duration) error {
 
 // PollUsers looks for users and checks their events.
 func (p *Poller) PollUsers(ctx context.Context) error {
-	users, err := p.db.Users()
+	users, err := p.db.Users(ctx)
 	if err != nil {
 		return err
 	}
@@ -91,7 +91,7 @@ func (p *Poller) PollUser(ctx context.Context, logger *logrus.Entry, user db.Use
 	}
 
 	// Get user's filters.
-	filters, err := p.db.UsersFilters(user.ID)
+	filters, err := p.db.UsersFilters(ctx, user.ID)
 	if err != nil {
 		return err
 	}
@@ -126,7 +126,7 @@ func (p *Poller) PollUser(ctx context.Context, logger *logrus.Entry, user db.Use
 
 	if len(events) > 0 {
 		// Mark all events as read from here.
-		err := p.db.SetUsersPollResult(user.ID, events[0].CreatedAt, time.Now().Add(pollInterval))
+		err := p.db.SetUsersPollResult(ctx, user.ID, events[0].CreatedAt, time.Now().Add(pollInterval))
 		if err != nil {
 			return err
 		}

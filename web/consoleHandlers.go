@@ -64,14 +64,14 @@ func (web *Web) ConsoleEventsHandler(w http.ResponseWriter, r *http.Request) {
 
 	logger = logger.WithField("userID", userID)
 
-	user, err := web.db.User(userID)
+	user, err := web.db.User(r.Context(), userID)
 	if err != nil {
 		logger.WithError(err).Error("could not get user")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
-	filters, err := web.db.UsersFilters(user.ID)
+	filters, err := web.db.UsersFilters(r.Context(), user.ID)
 	if err != nil {
 		logger.WithError(err).Error("could not get user's filters")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -111,14 +111,14 @@ func (web *Web) ConsoleFiltersHandler(w http.ResponseWriter, r *http.Request) {
 
 	logger = logger.WithField("userID", userID)
 
-	user, err := web.db.User(userID)
+	user, err := web.db.User(r.Context(), userID)
 	if err != nil {
 		logger.WithError(err).Error("could not get user")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
-	filters, err := web.db.UsersFilters(userID)
+	filters, err := web.db.UsersFilters(r.Context(), userID)
 	if err != nil {
 		logger.WithError(err).Error("could not get user's filters")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -146,7 +146,7 @@ func (web *Web) ConsoleFiltersUpdateHandler(w http.ResponseWriter, r *http.Reque
 
 	logger = logger.WithField("userID", userID)
 
-	user, err := web.db.User(userID)
+	user, err := web.db.User(r.Context(), userID)
 	if err != nil {
 		logger.WithError(err).Error("could not get user")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -155,7 +155,7 @@ func (web *Web) ConsoleFiltersUpdateHandler(w http.ResponseWriter, r *http.Reque
 
 	user.FilterDefaultDiscard = r.FormValue("filterdefaultdiscard") == "true"
 
-	err = web.db.UserUpdate(user)
+	err = web.db.UserUpdate(r.Context(), user)
 	if err != nil {
 		logger.WithError(err).Error("could not update user")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -189,7 +189,7 @@ func (web *Web) ConsoleFilterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filter, err := web.db.Filter(int(filterID))
+	filter, err := web.db.Filter(r.Context(), int(filterID))
 	if err != nil {
 		logger.WithError(err).Errorf("could not get filter %v", filterID)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -237,7 +237,7 @@ func (web *Web) ConsoleConditionDeleteHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	err = web.db.ConditionDelete(userID, int(conditionID))
+	err = web.db.ConditionDelete(r.Context(), userID, int(conditionID))
 	if err != nil {
 		logger.WithError(err).Error("could not delete condition")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -272,7 +272,7 @@ func (web *Web) ConsoleConditionCreateHandler(w http.ResponseWriter, r *http.Req
 
 	// Check permissions
 
-	filter, err := web.db.Filter(int(filterID))
+	filter, err := web.db.Filter(r.Context(), int(filterID))
 	if err != nil {
 		logger.WithError(err).Error("could not get filter")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -312,7 +312,7 @@ func (web *Web) ConsoleConditionCreateHandler(w http.ResponseWriter, r *http.Req
 	// to the user, else they might have tried to overwrite it.
 	condition.FilterID = int(filterID)
 
-	conditionID, err := web.db.ConditionCreate(condition)
+	conditionID, err := web.db.ConditionCreate(r.Context(), condition)
 	if err != nil {
 		logger.WithError(err).Error("could not delete condition")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -346,7 +346,7 @@ func (web *Web) ConsoleFilterUpdateHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	filter, err := web.db.Filter(int(filterID))
+	filter, err := web.db.Filter(r.Context(), int(filterID))
 	if err != nil {
 		logger.WithError(err).Errorf("could not get filter %v", filterID)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -368,7 +368,7 @@ func (web *Web) ConsoleFilterUpdateHandler(w http.ResponseWriter, r *http.Reques
 
 	filter.OnMatchDiscard = r.FormValue("onmatchdiscard") == "true"
 
-	err = web.db.FilterUpdate(filter)
+	err = web.db.FilterUpdate(r.Context(), filter)
 	if err != nil {
 		logger.WithError(err).Error("could not update filter")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)

@@ -17,25 +17,25 @@ import (
 // DB represents a database.
 type DB interface {
 	// Users returns a list of active users that need are scheduled to be polled.
-	Users() ([]User, error)
+	Users(context.Context) ([]User, error)
 	// User returns a single user from the database, returns nil if no user was found.
-	User(userID int) (*User, error)
+	User(ctx context.Context, userID int) (*User, error)
 	// UserUpdate updates a user in the database.
-	UserUpdate(*User) error
+	UserUpdate(context.Context, *User) error
 	// UsersFilters returns all filters for a User ID.
-	UsersFilters(userID int) ([]Filter, error)
+	UsersFilters(ctx context.Context, userID int) ([]Filter, error)
 	// Filter returns a single filter from the database, returns nil if no filter found.
-	Filter(filterID int) (*Filter, error)
+	Filter(ctx context.Context, filterID int) (*Filter, error)
 	// FilterUpdate updates a filter in the database.
-	FilterUpdate(*Filter) error
+	FilterUpdate(context.Context, *Filter) error
 	// Condition returns a single condition from the database, returns nil if no condition found.
-	Condition(conditionID int) (*Condition, error)
+	Condition(ctx context.Context, conditionID int) (*Condition, error)
 	// ConditionDelete deletes a userID's condition from the database.
-	ConditionDelete(userID, conditionID int) error
+	ConditionDelete(ctsx context.Context, userID, conditionID int) error
 	// ConditionCreate inserts a condition into the database.
-	ConditionCreate(*Condition) (conditionID int, err error)
+	ConditionCreate(context.Context, *Condition) (conditionID int, err error)
 	// SetUsersNextUpdate
-	SetUsersPollResult(userID int, lastCreatedAt time.Time, nextUpdate time.Time) error
+	SetUsersPollResult(ctx context.Context, userID int, lastCreatedAt time.Time, nextUpdate time.Time) error
 	// GitHubLogin logs a user in via GitHub, if a user already exists with the same
 	// githubID, the user's accessToken is updated, else a new user is created.
 	GitHubLogin(ctx context.Context, email string, githubID int, githubLogin string, token *oauth2.Token) (userID int, err error)
@@ -145,7 +145,7 @@ func NewSQLDB(driver string, dbConn *sql.DB) *SQLDB {
 }
 
 // Users implements the DB interface.
-func (db *SQLDB) Users() ([]User, error) {
+func (db *SQLDB) Users(_ context.Context) ([]User, error) {
 	// TODO only select users where next poll is before now.
 	return []User{
 		{
@@ -159,9 +159,9 @@ func (db *SQLDB) Users() ([]User, error) {
 	}, nil
 }
 
-func (db *SQLDB) User(userID int) (*User, error) {
+func (db *SQLDB) User(ctx context.Context, userID int) (*User, error) {
 	user := &User{}
-	err := db.sqlx.Get(user, "SELECT id, email, github_id, github_login, github_token, filter_default_discard FROM users WHERE id = ?", userID)
+	err := db.sqlx.GetContext(ctx, user, "SELECT id, email, github_id, github_login, github_token, filter_default_discard FROM users WHERE id = ?", userID)
 	switch {
 	case err == sql.ErrNoRows:
 		return nil, nil
@@ -177,15 +177,15 @@ func (db *SQLDB) User(userID int) (*User, error) {
 }
 
 // UserUpdate implements the DB interface.
-func (db *SQLDB) UserUpdate(user *User) error {
-	_, err := db.sqlx.Exec("UPDATE users SET filter_default_discard = ? WHERE id = ?", user.FilterDefaultDiscard, user.ID)
+func (db *SQLDB) UserUpdate(ctx context.Context, user *User) error {
+	_, err := db.sqlx.ExecContext(ctx, "UPDATE users SET filter_default_discard = ? WHERE id = ?", user.FilterDefaultDiscard, user.ID)
 	return errors.Wrapf(err, "could update user %d", user.ID)
 }
 
 // UsersFilters implements the DB interface.
-func (db *SQLDB) UsersFilters(userID int) ([]Filter, error) {
+func (db *SQLDB) UsersFilters(ctx context.Context, userID int) ([]Filter, error) {
 	var filters []Filter
-	err := db.sqlx.Select(&filters, `SELECT id, user_id, on_match_discard, created_at, updated_at FROM filters WHERE user_id = ?`, userID)
+	err := db.sqlx.SelectContext(ctx, &filters, `SELECT id, user_id, on_match_discard, created_at, updated_at FROM filters WHERE user_id = ?`, userID)
 	switch {
 	case err == sql.ErrNoRows:
 		return nil, nil
@@ -195,7 +195,7 @@ func (db *SQLDB) UsersFilters(userID int) ([]Filter, error) {
 
 	// I feel terrible that I've written this. Let's hope no-one else uses this service.
 	for i := range filters {
-		err = db.sqlx.Select(&filters[i].Conditions, `SELECT * FROM conditions WHERE filter_id = ?`, filters[i].ID)
+		err = db.sqlx.SelectContext(ctx, &filters[i].Conditions, `SELECT * FROM conditions WHERE filter_id = ?`, filters[i].ID)
 		switch {
 		case err == sql.ErrNoRows:
 		case err != nil:
@@ -207,9 +207,9 @@ func (db *SQLDB) UsersFilters(userID int) ([]Filter, error) {
 }
 
 // Filter implements the DB interface.
-func (db *SQLDB) Filter(filterID int) (*Filter, error) {
+func (db *SQLDB) Filter(ctx context.Context, filterID int) (*Filter, error) {
 	filter := &Filter{}
-	err := db.sqlx.Get(filter, `SELECT id, user_id, on_match_discard, created_at, updated_at FROM filters WHERE id = ?`, filterID)
+	err := db.sqlx.GetContext(ctx, filter, `SELECT id, user_id, on_match_discard, created_at, updated_at FROM filters WHERE id = ?`, filterID)
 	switch {
 	case err == sql.ErrNoRows:
 		return nil, nil
@@ -217,7 +217,7 @@ func (db *SQLDB) Filter(filterID int) (*Filter, error) {
 		return nil, errors.Wrap(err, "could not select from filters")
 	}
 
-	err = db.sqlx.Select(&filter.Conditions, `SELECT * FROM conditions WHERE filter_id = ?`, filterID)
+	err = db.sqlx.SelectContext(ctx, &filter.Conditions, `SELECT * FROM conditions WHERE filter_id = ?`, filterID)
 	switch {
 	case err == sql.ErrNoRows:
 	case err != nil:
@@ -228,15 +228,15 @@ func (db *SQLDB) Filter(filterID int) (*Filter, error) {
 }
 
 // FilterUpdate implements the DB interface.
-func (db *SQLDB) FilterUpdate(filter *Filter) error {
-	_, err := db.sqlx.Exec("UPDATE filters SET on_match_discard = ? WHERE id = ?", filter.OnMatchDiscard, filter.ID)
+func (db *SQLDB) FilterUpdate(ctx context.Context, filter *Filter) error {
+	_, err := db.sqlx.ExecContext(ctx, "UPDATE filters SET on_match_discard = ? WHERE id = ?", filter.OnMatchDiscard, filter.ID)
 	return errors.Wrapf(err, "could update filter %d", filter.ID)
 }
 
 // Condition implements the DB interface.
-func (db *SQLDB) Condition(conditionID int) (*Condition, error) {
+func (db *SQLDB) Condition(ctx context.Context, conditionID int) (*Condition, error) {
 	condition := &Condition{}
-	err := db.sqlx.Get(condition, `SELECT * FROM conditions WHERE id = ?`, conditionID)
+	err := db.sqlx.GetContext(ctx, condition, `SELECT * FROM conditions WHERE id = ?`, conditionID)
 	switch {
 	case err == sql.ErrNoRows:
 		return nil, nil
@@ -247,14 +247,14 @@ func (db *SQLDB) Condition(conditionID int) (*Condition, error) {
 }
 
 // ConditionDelete implements the DB interface.
-func (db *SQLDB) ConditionDelete(userID, conditionID int) error {
-	_, err := db.sqlx.Exec(`DELETE c FROM conditions c JOIN filters f ON c.filter_id = f.id WHERE f.user_id = ? AND c.id = ?`, userID, conditionID)
+func (db *SQLDB) ConditionDelete(ctx context.Context, userID, conditionID int) error {
+	_, err := db.sqlx.ExecContext(ctx, `DELETE c FROM conditions c JOIN filters f ON c.filter_id = f.id WHERE f.user_id = ? AND c.id = ?`, userID, conditionID)
 	return errors.Wrap(err, "could not delete condition")
 }
 
 // ConditionCreate implements the DB interface.
-func (db *SQLDB) ConditionCreate(condition *Condition) (int, error) {
-	result, err := db.sqlx.NamedExec(`
+func (db *SQLDB) ConditionCreate(ctx context.Context, condition *Condition) (int, error) {
+	result, err := db.sqlx.NamedExecContext(ctx, `
 INSERT INTO conditions (
 	filter_id, negate, type, payload_action, payload_issue_label, payload_issue_milestone_title, payload_issue_title_regexp,
 	payload_issue_body_regexp, public, organization_id, repository_id
@@ -275,7 +275,7 @@ INSERT INTO conditions (
 }
 
 // SetUsersPollResult implements the DB interface.
-func (db *SQLDB) SetUsersPollResult(userID int, lastCreatedAt, nextPoll time.Time) error {
+func (db *SQLDB) SetUsersPollResult(ctx context.Context, userID int, lastCreatedAt, nextPoll time.Time) error {
 	// TODO do
 	return nil
 }
@@ -289,11 +289,11 @@ func (db *SQLDB) GitHubLogin(ctx context.Context, email string, githubID int, gi
 
 	// Check if user exists
 	var userID int
-	err = db.sqlx.QueryRow("SELECT id FROM users WHERE github_id = ?", githubID).Scan(&userID)
+	err = db.sqlx.QueryRowContext(ctx, "SELECT id FROM users WHERE github_id = ?", githubID).Scan(&userID)
 	switch {
 	case err == sql.ErrNoRows:
 		// Add token to new user
-		res, err := db.sqlx.Exec("INSERT INTO users (email, github_id, github_login, github_token) VALUES (?, ?, ?, ?)", email, githubID, githubLogin, jsonToken)
+		res, err := db.sqlx.ExecContext(ctx, "INSERT INTO users (email, github_id, github_login, github_token) VALUES (?, ?, ?, ?)", email, githubID, githubLogin, jsonToken)
 		if err != nil {
 			return 0, errors.Wrapf(err, "error inserting new githubID %q", githubID)
 		}
@@ -307,7 +307,7 @@ func (db *SQLDB) GitHubLogin(ctx context.Context, email string, githubID int, gi
 	}
 
 	// Add token to existing user and update email
-	_, err = db.sqlx.Exec("UPDATE users SET email = ?, github_login = ?, github_token = ? WHERE id = ?", email, githubLogin, jsonToken, userID)
+	_, err = db.sqlx.ExecContext(ctx, "UPDATE users SET email = ?, github_login = ?, github_token = ? WHERE id = ?", email, githubLogin, jsonToken, userID)
 	if err != nil {
 		return 0, errors.Wrapf(err, "could update userID %d", userID)
 	}
