@@ -110,7 +110,6 @@ func run(logger *logrus.Logger) error {
 	sessionEngine := mysqlstore.New(dbConn, 5*time.Minute)
 	defer sessionEngine.StopCleanup()
 
-	webLogger := logger.WithField("thread", "web")
 	sessionManager := session.Manage(
 		sessionEngine,
 		session.Lifetime(365*24*time.Hour),
@@ -118,13 +117,18 @@ func run(logger *logrus.Logger) error {
 		session.Secure(true),
 		session.HttpOnly(true),
 		session.ErrorFunc(func(w http.ResponseWriter, r *http.Request, err error) {
-			webLogger.WithError(err).Error("session handling error")
+			logger.WithError(err).Error("session handling error")
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		}),
 	)
 
 	// Web
-	web, err := web.NewWeb(webLogger, db, cache, ghoauthConfig)
+	public, err := web.NewPublic(logger)
+	if err != nil {
+		return errors.WithMessage(err, "could not instantiate web")
+	}
+
+	console, err := web.NewConsole(logger, db, cache, ghoauthConfig)
 	if err != nil {
 		return errors.WithMessage(err, "could not instantiate web")
 	}
@@ -136,22 +140,20 @@ func run(logger *logrus.Logger) error {
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.NoCache)
 
-	// TODO split web into web and console
-
-	router.Get("/", web.Home)
-	router.Get("/login", web.Login)
-	router.Get("/login/callback", web.LoginCallback)
-	//router.Get("/logout", web.Logout)
+	router.Get("/", public.Home)
+	router.Get("/login", console.Login)
+	router.Get("/login/callback", console.LoginCallback)
+	//router.Get("/logout", console.Logout)
 	router.Route("/console", func(router chi.Router) {
-		router.Use(web.RequireLogin)
-		router.Get("/", web.ConsoleHome)
-		router.Get("/filters", web.ConsoleFilters)
-		router.Post("/filters", web.ConsoleFiltersUpdate)
-		router.Get("/filters/{filterID}", web.ConsoleFilter)
-		router.Post("/filters/{filterID}", web.ConsoleFilterUpdate)
-		router.Delete("/conditions/{conditionID}", web.ConsoleConditionDelete)
-		router.Post("/conditions/", web.ConsoleConditionCreate)
-		router.Get("/events", web.ConsoleEvents)
+		router.Use(console.RequireLogin)
+		router.Get("/", console.Home)
+		router.Get("/filters", console.Filters)
+		router.Post("/filters", console.FiltersUpdate)
+		router.Get("/filters/{filterID}", console.Filter)
+		router.Post("/filters/{filterID}", console.FilterUpdate)
+		router.Delete("/conditions/{conditionID}", console.ConditionDelete)
+		router.Post("/conditions/", console.ConditionCreate)
+		router.Get("/events", console.Events)
 	})
 
 	// HTTP Server
