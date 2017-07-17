@@ -71,6 +71,7 @@ func NewWeb(logger *logrus.Entry, db db.DB, cache http.RoundTripper, router chi.
 		router.Use(web.RequireLogin)
 		router.Get("/", web.ConsoleHomeHandler)
 		router.Get("/filters", web.ConsoleFiltersHandler)
+		router.Post("/filters", web.ConsoleFiltersUpdateHandler)
 		router.Get("/filters/{filterID}", web.ConsoleFilterHandler)
 		router.Post("/filters/{filterID}", web.ConsoleFilterUpdateHandler)
 		router.Delete("/conditions/{conditionID}", web.ConsoleConditionDeleteHandler) // doesn't redirect

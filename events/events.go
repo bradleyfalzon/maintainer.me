@@ -67,9 +67,9 @@ func haveObserved(observed, query time.Time) bool {
 	return !observed.IsZero() && (query.Before(observed) || query.Equal(observed))
 }
 
-func (e Events) Filter(filters []db.Filter) {
+func (e Events) Filter(filters []db.Filter, defaultDiscard bool) {
 	for _, event := range e {
-		event.Filter(filters)
+		event.Filter(filters, defaultDiscard)
 	}
 }
 
@@ -220,12 +220,12 @@ func (e *Event) String() string {
 	return e.Title
 }
 
-func (e *Event) Filter(filters []db.Filter) {
+func (e *Event) Filter(filters []db.Filter, defaultDiscard bool) {
 	for _, filter := range filters {
 		if filter.Matches(e.RawEvent) {
 			e.Discarded = filter.OnMatchDiscard
 			return
 		}
 	}
-	e.Discarded = true // Event did not match a filter.
+	e.Discarded = defaultDiscard // Event did not match a filter.
 }

@@ -88,7 +88,7 @@ func (web *Web) ConsoleEventsHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-	allEvents.Filter(filters)
+	allEvents.Filter(filters, user.FilterDefaultDiscard)
 
 	page := struct {
 		Title  string
@@ -111,6 +111,13 @@ func (web *Web) ConsoleFiltersHandler(w http.ResponseWriter, r *http.Request) {
 
 	logger = logger.WithField("userID", userID)
 
+	user, err := web.db.User(userID)
+	if err != nil {
+		logger.WithError(err).Error("could not get user")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
 	filters, err := web.db.UsersFilters(userID)
 	if err != nil {
 		logger.WithError(err).Error("could not get user's filters")
@@ -119,11 +126,45 @@ func (web *Web) ConsoleFiltersHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	page := struct {
-		Title   string
-		Filters []db.Filter
-	}{"Filters - Maintainer.Me", filters}
+		Title                string
+		FilterDefaultDiscard bool
+		Filters              []db.Filter
+	}{"Filters - Maintainer.Me", user.FilterDefaultDiscard, filters}
 
 	web.render(w, logger, "console-filters.tmpl", page)
+}
+
+// ConsoleFiltersUpdateHandler updates filter list.
+func (web *Web) ConsoleFiltersUpdateHandler(w http.ResponseWriter, r *http.Request) {
+	logger := web.logger.WithField("requestURI", r.RequestURI)
+	userID, err := session.GetInt(r, "userID")
+	if err != nil {
+		logger.WithError(err).Error("could not userID from session")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	logger = logger.WithField("userID", userID)
+
+	user, err := web.db.User(userID)
+	if err != nil {
+		logger.WithError(err).Error("could not get user")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	user.FilterDefaultDiscard = r.FormValue("filterdefaultdiscard") == "true"
+
+	err = web.db.UserUpdate(user)
+	if err != nil {
+		logger.WithError(err).Error("could not update user")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	logger.Info("successfully updated filters")
+
+	http.Redirect(w, r, r.Header.Get("referer"), http.StatusFound)
 }
 
 // ConsoleFilterHandler is a handler to view a single user's filter.

@@ -20,6 +20,8 @@ type DB interface {
 	Users() ([]User, error)
 	// User returns a single user from the database, returns nil if no user was found.
 	User(userID int) (*User, error)
+	// UserUpdate updates a user in the database.
+	UserUpdate(*User) error
 	// UsersFilters returns all filters for a User ID.
 	UsersFilters(userID int) ([]Filter, error)
 	// Filter returns a single filter from the database, returns nil if no filter found.
@@ -54,6 +56,8 @@ type User struct {
 	GitHubLogin    string `db:"github_login"`
 	GitHubTokenRaw []byte `db:"github_token"`
 	GitHubToken    *oauth2.Token
+
+	FilterDefaultDiscard bool `db:"filter_default_discard"`
 
 	EventLastCreatedAt time.Time // the latest created at event for the customer
 	EventNextPoll      time.Time // time when the next update should occur
@@ -157,7 +161,7 @@ func (db *SQLDB) Users() ([]User, error) {
 
 func (db *SQLDB) User(userID int) (*User, error) {
 	user := &User{}
-	err := db.sqlx.Get(user, "SELECT id, email, github_id, github_login, github_token FROM users WHERE id = ?", userID)
+	err := db.sqlx.Get(user, "SELECT id, email, github_id, github_login, github_token, filter_default_discard FROM users WHERE id = ?", userID)
 	switch {
 	case err == sql.ErrNoRows:
 		return nil, nil
@@ -170,6 +174,12 @@ func (db *SQLDB) User(userID int) (*User, error) {
 	}
 
 	return user, nil
+}
+
+// UserUpdate implements the DB interface.
+func (db *SQLDB) UserUpdate(user *User) error {
+	_, err := db.sqlx.Exec("UPDATE users SET filter_default_discard = ? WHERE id = ?", user.FilterDefaultDiscard, user.ID)
+	return errors.Wrapf(err, "could update user %d", user.ID)
 }
 
 // UsersFilters implements the DB interface.
