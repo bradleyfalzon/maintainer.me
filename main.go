@@ -14,11 +14,13 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/alexedwards/scs/engine/mysqlstore"
+	"github.com/alexedwards/scs/session"
 	"github.com/bradleyfalzon/maintainer.me/db"
 	"github.com/bradleyfalzon/maintainer.me/events"
 	"github.com/bradleyfalzon/maintainer.me/notifier"
 	"github.com/bradleyfalzon/maintainer.me/web"
 	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gregjones/httpcache"
 	"github.com/gregjones/httpcache/diskcache"
@@ -108,12 +110,50 @@ func run(logger *logrus.Logger) error {
 	sessionEngine := mysqlstore.New(dbConn, 5*time.Minute)
 	defer sessionEngine.StopCleanup()
 
+	webLogger := logger.WithField("thread", "web")
+	sessionManager := session.Manage(
+		sessionEngine,
+		session.Lifetime(365*24*time.Hour),
+		session.Persist(true),
+		session.Secure(true),
+		session.HttpOnly(true),
+		session.ErrorFunc(func(w http.ResponseWriter, r *http.Request, err error) {
+			webLogger.WithError(err).Error("session handling error")
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		}),
+	)
+
 	// Web
-	router := chi.NewRouter()
-	err = web.NewWeb(logger.WithField("thread", "web"), db, cache, router, sessionEngine, ghoauthConfig)
+	web, err := web.NewWeb(webLogger, db, cache, ghoauthConfig)
 	if err != nil {
 		return errors.WithMessage(err, "could not instantiate web")
 	}
+
+	router := chi.NewRouter()
+	router.Use(sessionManager)
+
+	router.Use(middleware.DefaultCompress)
+	router.Use(middleware.Recoverer)
+	router.Use(middleware.NoCache)
+
+	// TODO remove Handler from name
+	// TODO split web into web and console
+
+	router.Get("/", web.HomeHandler)
+	router.Get("/login", web.LoginHandler)
+	router.Get("/login/callback", web.LoginCallbackHandler)
+	//router.Get("/logout", web.LogoutHandler)
+	router.Route("/console", func(router chi.Router) {
+		router.Use(web.RequireLogin)
+		router.Get("/", web.ConsoleHomeHandler)
+		router.Get("/filters", web.ConsoleFiltersHandler)
+		router.Post("/filters", web.ConsoleFiltersUpdateHandler)
+		router.Get("/filters/{filterID}", web.ConsoleFilterHandler)
+		router.Post("/filters/{filterID}", web.ConsoleFilterUpdateHandler)
+		router.Delete("/conditions/{conditionID}", web.ConsoleConditionDeleteHandler) // doesn't redirect
+		router.Post("/conditions/", web.ConsoleConditionCreateHandler)                // redirects /shrug
+		router.Get("/events", web.ConsoleEventsHandler)
+	})
 
 	// HTTP Server
 	srv := &http.Server{

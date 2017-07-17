@@ -6,15 +6,12 @@ import (
 	"html/template"
 	"io"
 	"net/http"
-	"time"
 
 	"golang.org/x/oauth2"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/alexedwards/scs/session"
 	"github.com/bradleyfalzon/maintainer.me/db"
-	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/middleware"
 	"github.com/google/go-github/github"
 	"github.com/google/uuid"
 )
@@ -28,58 +25,19 @@ type Web struct {
 }
 
 // NewWeb returns a new web instance.
-func NewWeb(logger *logrus.Entry, db db.DB, cache http.RoundTripper, router chi.Router, sessionEngine session.Engine, ghoauthConf *oauth2.Config) error {
+func NewWeb(logger *logrus.Entry, db db.DB, cache http.RoundTripper, ghoauthConf *oauth2.Config) (*Web, error) {
 	templates, err := template.ParseGlob("web/templates/*.tmpl")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	web := &Web{
+	return &Web{
 		logger:      logger,
 		db:          db,
 		cache:       cache,
 		templates:   templates,
 		ghoauthConf: ghoauthConf,
-	}
-
-	sessionManager := session.Manage(
-		sessionEngine,
-		session.Lifetime(365*24*time.Hour),
-		session.Persist(true),
-		session.Secure(true),
-		session.HttpOnly(true),
-		session.ErrorFunc(func(w http.ResponseWriter, r *http.Request, err error) {
-			web.logger.WithError(err).Error("session handling error")
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		}),
-	)
-
-	router.Use(sessionManager)
-
-	router.Use(middleware.DefaultCompress)
-	router.Use(middleware.Recoverer)
-	router.Use(middleware.NoCache)
-
-	// TODO remove Handler from name
-	// TODO split web into web and console
-
-	router.Get("/", web.HomeHandler)
-	router.Get("/login", web.LoginHandler)
-	router.Get("/login/callback", web.LoginCallbackHandler)
-	//router.Get("/logout", web.LogoutHandler)
-	router.Route("/console", func(router chi.Router) {
-		router.Use(web.RequireLogin)
-		router.Get("/", web.ConsoleHomeHandler)
-		router.Get("/filters", web.ConsoleFiltersHandler)
-		router.Post("/filters", web.ConsoleFiltersUpdateHandler)
-		router.Get("/filters/{filterID}", web.ConsoleFilterHandler)
-		router.Post("/filters/{filterID}", web.ConsoleFilterUpdateHandler)
-		router.Delete("/conditions/{conditionID}", web.ConsoleConditionDeleteHandler) // doesn't redirect
-		router.Post("/conditions/", web.ConsoleConditionCreateHandler)                // redirects /shrug
-		router.Get("/events", web.ConsoleEventsHandler)
-	})
-
-	return nil
+	}, nil
 }
 
 func (web *Web) render(w http.ResponseWriter, logger *logrus.Entry, template string, data interface{}) {
