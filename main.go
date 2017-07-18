@@ -147,6 +147,7 @@ func run(logger *logrus.Logger) error {
 	router.Route("/console", func(router chi.Router) {
 		router.Use(console.RequireLogin)
 		router.Get("/", console.Home)
+		router.Get("/repos", console.Repos)
 		router.Get("/filters", console.Filters)
 		router.Post("/filters", console.FiltersUpdate)
 		router.Get("/filters/{filterID}", console.Filter)

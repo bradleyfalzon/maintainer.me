@@ -15,6 +15,7 @@ import (
 	"github.com/alexedwards/scs/session"
 	"github.com/bradleyfalzon/maintainer.me/db"
 	"github.com/bradleyfalzon/maintainer.me/events"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/go-chi/chi"
 	"github.com/google/go-github/github"
 	"github.com/google/uuid"
@@ -503,4 +504,118 @@ func (c *Console) FilterUpdate(w http.ResponseWriter, r *http.Request) {
 	logger.Info("successfully updated filter")
 
 	http.Redirect(w, r, r.Header.Get("referer"), http.StatusFound)
+}
+
+// Repos is a handler to view all user's repos
+func (c *Console) Repos(w http.ResponseWriter, r *http.Request) {
+	logger := c.logger.WithField("requestURI", r.RequestURI)
+	userID, err := session.GetInt(r, "userID")
+	if err != nil {
+		logger.WithError(err).Error("could not userID from session")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	logger = logger.WithField("userID", userID)
+
+	user, err := c.db.User(r.Context(), userID)
+	if err != nil {
+		logger.WithError(err).Error("could not get user")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	client := c.githubClient(r.Context(), user.GitHubToken)
+
+	opt := &github.RepositoryListOptions{
+		ListOptions: github.ListOptions{
+			Page:    1,
+			PerPage: 100,
+		},
+	}
+
+	var allRepos []*github.Repository
+	for {
+		logger.Debugf("list user's repositories page %v", opt.Page)
+		repos, resp, err := client.Repositories.List(r.Context(), "", opt)
+		if err != nil {
+			logger.WithError(err).Error("could not list user's repositories")
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+
+		allRepos = append(allRepos, repos...)
+		if resp.NextPage == 0 {
+			break
+		}
+		opt.Page = resp.NextPage
+	}
+
+	type Repo struct {
+		FullName string
+		HTMLURL  string
+		Topics   []string
+
+		OpenIssuesCount  int
+		StargazersCount  int
+		Fork             bool
+		License          string
+		HealthPercentage int
+		HasCoC           bool
+		HasContributing  bool
+		HasLicense       bool
+		HasReadme        bool
+	}
+
+	var repos []Repo
+	for _, lr := range allRepos {
+		if lr.GetFork() {
+			continue
+		}
+
+		repo := Repo{
+			FullName:        lr.GetFullName(),
+			HTMLURL:         lr.GetHTMLURL(),
+			StargazersCount: lr.GetStargazersCount(),
+			OpenIssuesCount: lr.GetOpenIssuesCount(),
+			Fork:            lr.GetFork(),
+		}
+
+		if lr.Topics != nil {
+			repo.Topics = *lr.Topics
+		}
+
+		health, _, err := client.Repositories.GetCommunityHealthMetrics(r.Context(), lr.Owner.GetLogin(), lr.GetName())
+		if err != nil {
+			logger.WithError(err).Errorf("could not get community health metrics for %v", lr.GetFullName())
+			repos = append(repos, repo)
+			continue
+		}
+
+		repo.HealthPercentage = health.GetHealthPercentage()
+
+		if health.Files.CodeOfConduct.Key != nil && health.Files.CodeOfConduct.GetKey() != "none" {
+			spew.Dump(health.Files.CodeOfConduct)
+			repo.HasCoC = true
+		}
+		if health.Files.Contributing.Key != nil {
+			repo.HasContributing = true
+		}
+		if health.Files.License.Key != nil {
+			repo.License = health.Files.License.GetKey()
+			repo.HasLicense = true
+		}
+		if health.Files.Readme.HTMLURL != nil {
+			repo.HasReadme = true
+		}
+
+		repos = append(repos, repo)
+	}
+
+	page := struct {
+		Title string
+		Repos []Repo
+	}{"Repositories - Maintainer.Me", repos}
+
+	c.render(w, logger, "console-repos.tmpl", page)
 }

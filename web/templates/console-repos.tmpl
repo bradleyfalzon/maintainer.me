@@ -1,0 +1,61 @@
+{{ template "console-header" . }}
+
+<h1>Repositories</h1>
+
+<p>Use this view to see your existing repositories and perform any health checks.</p>
+
+<style>
+#repos-table {
+    font-size: 12px;
+}
+</style>
+
+<table id="repos-table" class="table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Stargazers</th>
+            <th>Issues</th>
+            <th>Health Percentage</th>
+            <th>CoC</th>
+            <th>Contributing</th>
+            <th>License</th>
+            <th>Readme</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{ range .Repos }}
+            <tr>
+                <td>
+                    <div><a href="{{ .HTMLURL }}">{{ .FullName }}</a></div>
+                    <div class="topics">
+                        {{ range .Topics }}
+                            <span class="topic">{{ . }}</span>
+                        {{ end }}
+                    </div>
+                </td>
+                <td>{{ .StargazersCount }}</td>
+                <td>{{ .OpenIssuesCount }}</td>
+                <td>{{ .HealthPercentage }}</td>
+                <td>{{ .HasCoC }}</td>
+                <td>{{ .HasContributing }}</td>
+                <td>{{ .License }}</td>
+                <td>{{ .HasReadme }}</td>
+            </tr>
+        {{ end }}
+    </tbody>
+</table>
+
+<link rel="stylesheet" type="text/css" href="//cdn.datatables.net/1.10.15/css/jquery.dataTables.css">
+<script type="text/javascript" charset="utf8" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<script type="text/javascript" charset="utf8" src="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.15/js/jquery.dataTables.min.js"></script>
+
+<script>
+    $(document).ready( function () {
+        $('#repos-table').DataTable({
+            paging: false
+        });
+    });
+</script>
+
+{{ template "console-footer" . }}
