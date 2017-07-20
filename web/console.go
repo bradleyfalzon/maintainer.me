@@ -189,9 +189,18 @@ func (c *Console) RequireLogin(next http.Handler) http.Handler {
 	})
 }
 
+func (c *Console) loggerFromRequest(r *http.Request) *logrus.Entry {
+	user := userFromContext(r.Context())
+	return c.logger.WithFields(logrus.Fields{
+		"requestURI":    r.RequestURI,
+		"requestMethod": r.Method,
+		"userID":        user.ID,
+	})
+}
+
 // ConsoleHome is the handler to view the console page.
 func (c *Console) Home(w http.ResponseWriter, r *http.Request) {
-	logger := c.logger.WithField("requestURI", r.RequestURI)
+	logger := c.loggerFromRequest(r)
 	_, err := session.GetString(r, "username")
 	if err != nil {
 		logger.WithError(err).Error("could not get session")
@@ -203,8 +212,10 @@ func (c *Console) Home(w http.ResponseWriter, r *http.Request) {
 
 // ConsoleEvents is a handler to view events that have been filtered.
 func (c *Console) Events(w http.ResponseWriter, r *http.Request) {
-	logger := c.logger.WithField("requestURI", r.RequestURI)
-	user := userFromContext(r.Context())
+	var (
+		logger = c.loggerFromRequest(r)
+		user   = userFromContext(r.Context())
+	)
 
 	filters, err := c.db.UsersFilters(r.Context(), user.ID)
 	if err != nil {
@@ -236,8 +247,10 @@ func (c *Console) Events(w http.ResponseWriter, r *http.Request) {
 
 // ConsoleFilters is a handler to view user's filters.
 func (c *Console) Filters(w http.ResponseWriter, r *http.Request) {
-	logger := c.logger.WithField("requestURI", r.RequestURI)
-	user := userFromContext(r.Context())
+	var (
+		logger = c.loggerFromRequest(r)
+		user   = userFromContext(r.Context())
+	)
 
 	filters, err := c.db.UsersFilters(r.Context(), user.ID)
 	if err != nil {
@@ -257,8 +270,10 @@ func (c *Console) Filters(w http.ResponseWriter, r *http.Request) {
 
 // ConsoleFiltersUpdate updates filter list.
 func (c *Console) FiltersUpdate(w http.ResponseWriter, r *http.Request) {
-	logger := c.logger.WithField("requestURI", r.RequestURI)
-	user := userFromContext(r.Context())
+	var (
+		logger = c.loggerFromRequest(r)
+		user   = userFromContext(r.Context())
+	)
 
 	user.FilterDefaultDiscard = r.FormValue("filterdefaultdiscard") == "true"
 
@@ -276,8 +291,10 @@ func (c *Console) FiltersUpdate(w http.ResponseWriter, r *http.Request) {
 
 // ConsoleFilter is a handler to view a single user's filter.
 func (c *Console) Filter(w http.ResponseWriter, r *http.Request) {
-	logger := c.logger.WithField("requestURI", r.RequestURI)
-	user := userFromContext(r.Context())
+	var (
+		logger = c.loggerFromRequest(r)
+		user   = userFromContext(r.Context())
+	)
 
 	logger = logger.WithField("filterID", chi.URLParam(r, "filterID"))
 
@@ -316,8 +333,10 @@ func (c *Console) Filter(w http.ResponseWriter, r *http.Request) {
 
 // ConsoleConditionDelete deletes a condition.
 func (c *Console) ConditionDelete(w http.ResponseWriter, r *http.Request) {
-	logger := c.logger.WithField("requestURI", r.RequestURI)
-	user := userFromContext(r.Context())
+	var (
+		logger = c.loggerFromRequest(r)
+		user   = userFromContext(r.Context())
+	)
 
 	logger = logger.WithField("conditionID", chi.URLParam(r, "conditionID"))
 
@@ -340,8 +359,10 @@ func (c *Console) ConditionDelete(w http.ResponseWriter, r *http.Request) {
 
 // ConsoleConditionCreate deletes a condition.
 func (c *Console) ConditionCreate(w http.ResponseWriter, r *http.Request) {
-	logger := c.logger.WithField("requestURI", r.RequestURI)
-	user := userFromContext(r.Context())
+	var (
+		logger = c.loggerFromRequest(r)
+		user   = userFromContext(r.Context())
+	)
 
 	r.ParseForm()
 	logger = logger.WithField("filterID", r.FormValue("filterID"))
@@ -409,8 +430,10 @@ func (c *Console) ConditionCreate(w http.ResponseWriter, r *http.Request) {
 
 // ConsoleFilterUpdate updates a filter.
 func (c *Console) FilterUpdate(w http.ResponseWriter, r *http.Request) {
-	logger := c.logger.WithField("requestURI", r.RequestURI)
-	user := userFromContext(r.Context())
+	var (
+		logger = c.loggerFromRequest(r)
+		user   = userFromContext(r.Context())
+	)
 
 	logger = logger.WithField("filterID", chi.URLParam(r, "filterID"))
 
@@ -457,8 +480,10 @@ func (c *Console) FilterUpdate(w http.ResponseWriter, r *http.Request) {
 
 // Repos is a handler to view all user's repos
 func (c *Console) Repos(w http.ResponseWriter, r *http.Request) {
-	logger := c.logger.WithField("requestURI", r.RequestURI)
-	user := userFromContext(r.Context())
+	var (
+		logger = c.loggerFromRequest(r)
+		user   = userFromContext(r.Context())
+	)
 
 	client := c.githubClient(r.Context(), user.GitHubToken)
 
