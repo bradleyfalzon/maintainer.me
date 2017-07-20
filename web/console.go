@@ -22,7 +22,7 @@ import (
 )
 
 type Console struct {
-	logger      *logrus.Logger
+	logger      *logrus.Entry
 	db          db.DB
 	cache       http.RoundTripper
 	templates   *template.Template
@@ -30,7 +30,7 @@ type Console struct {
 }
 
 // NewConsole returns a new console instance.
-func NewConsole(logger *logrus.Logger, db db.DB, cache http.RoundTripper, ghoauthConf *oauth2.Config) (*Console, error) {
+func NewConsole(logger *logrus.Entry, db db.DB, cache http.RoundTripper, ghoauthConf *oauth2.Config) (*Console, error) {
 	templates, err := template.ParseGlob("web/templates/console-*.tmpl")
 	if err != nil {
 		return nil, err

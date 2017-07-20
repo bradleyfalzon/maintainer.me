@@ -10,12 +10,12 @@ import (
 )
 
 type Public struct {
-	logger    *logrus.Logger
+	logger    *logrus.Entry
 	templates *template.Template
 }
 
 // NewPublic returns a new web instance.
-func NewPublic(logger *logrus.Logger) (*Public, error) {
+func NewPublic(logger *logrus.Entry) (*Public, error) {
 	templates, err := template.ParseGlob("web/templates/public-*.tmpl")
 	if err != nil {
 		return nil, err
