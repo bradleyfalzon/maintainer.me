@@ -63,6 +63,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/gorilla/Schema"
+  packages = ["."]
+  revision = "8b1100835db5bbdae88541510f70d114b91a7e4d"
+
+[[projects]]
+  branch = "master"
   name = "github.com/gregjones/httpcache"
   packages = [".","diskcache"]
   revision = "0d2297f241a3503b4d464cd434e6d1490ec76e9a"
@@ -136,6 +142,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "b34e981c17205ebdab41db9363d87968b50656fc48269b868fc5d90962fef463"
+  inputs-digest = "e90c026d838c4134665cfc08a94f713c938f51a3317869365b76894af149038f"
   solver-name = "gps-cdcl"
   solver-version = 1
