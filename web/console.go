@@ -540,9 +540,10 @@ func (c *Console) Repos(w http.ResponseWriter, r *http.Request) {
 			Fork:            lr.GetFork(),
 		}
 
-		if lr.Topics != nil {
-			repo.Topics = *lr.Topics
-		}
+		// Waiting for https://github.com/google/go-github/issues/675
+		//if lr.Topics != nil {
+		//repo.Topics = *lr.Topics
+		//}
 
 		health, _, err := client.Repositories.GetCommunityHealthMetrics(r.Context(), lr.Owner.GetLogin(), lr.GetName())
 		if err != nil {
