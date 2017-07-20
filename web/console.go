@@ -139,21 +139,45 @@ func (c *Console) githubClient(ctx context.Context, token *oauth2.Token) *github
 	return github.NewClient(oauthClient)
 }
 
+type userCtxKey struct{}
+
+// userFromContext returns a user from the context. Requires context to have
+// the user already added else panics.
+func userFromContext(ctx context.Context) *db.User {
+	return ctx.Value(userCtxKey{}).(*db.User)
+}
+
 // RequireLogin is middleware that loads a user's session and they
 // are logged in, and with a valid account. If not, the user is redirected
 // to /login. If an error occurs, a HTTP Internal Server Error is displayed.
+//
+// Also adds db.User type to context.
 func (c *Console) RequireLogin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		loggedIn, err := session.Exists(r, "userID")
+		userID, err := session.GetInt(r, "userID")
 		if err != nil {
-			c.logger.WithError(err).Error("RequireLogin could not check if session exists")
+			c.logger.WithError(err).Error("RequireLogin could not get userID from session")
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
-		if !loggedIn {
+		if userID == 0 {
+			// Key does not exist
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
+
+		user, err := c.db.User(r.Context(), userID)
+		if err != nil {
+			c.logger.WithError(err).Errorf("RequireLogin could not get userID %v", userID)
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+		if user == nil {
+			http.Redirect(w, r, "/login", http.StatusFound)
+			return
+		}
+
+		r = r.WithContext(context.WithValue(r.Context(), userCtxKey{}, user))
 
 		// TODO check if oauth credential is still valid?
 		// Too slow to do on every request? But if they unauthorise us
@@ -161,7 +185,6 @@ func (c *Console) RequireLogin(next http.Handler) http.Handler {
 		// in /console/github/ and any routes in there have an extra middleware
 		// that checks oauth each time.
 
-		// TODO check if user exists in DB
 		next.ServeHTTP(w, r)
 	})
 }
@@ -181,21 +204,7 @@ func (c *Console) Home(w http.ResponseWriter, r *http.Request) {
 // ConsoleEvents is a handler to view events that have been filtered.
 func (c *Console) Events(w http.ResponseWriter, r *http.Request) {
 	logger := c.logger.WithField("requestURI", r.RequestURI)
-	userID, err := session.GetInt(r, "userID")
-	if err != nil {
-		logger.WithError(err).Error("could not userID from session")
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-
-	logger = logger.WithField("userID", userID)
-
-	user, err := c.db.User(r.Context(), userID)
-	if err != nil {
-		logger.WithError(err).Error("could not get user")
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
+	user := userFromContext(r.Context())
 
 	filters, err := c.db.UsersFilters(r.Context(), user.ID)
 	if err != nil {
@@ -228,23 +237,9 @@ func (c *Console) Events(w http.ResponseWriter, r *http.Request) {
 // ConsoleFilters is a handler to view user's filters.
 func (c *Console) Filters(w http.ResponseWriter, r *http.Request) {
 	logger := c.logger.WithField("requestURI", r.RequestURI)
-	userID, err := session.GetInt(r, "userID")
-	if err != nil {
-		logger.WithError(err).Error("could not userID from session")
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
+	user := userFromContext(r.Context())
 
-	logger = logger.WithField("userID", userID)
-
-	user, err := c.db.User(r.Context(), userID)
-	if err != nil {
-		logger.WithError(err).Error("could not get user")
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-
-	filters, err := c.db.UsersFilters(r.Context(), userID)
+	filters, err := c.db.UsersFilters(r.Context(), user.ID)
 	if err != nil {
 		logger.WithError(err).Error("could not get user's filters")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -263,25 +258,11 @@ func (c *Console) Filters(w http.ResponseWriter, r *http.Request) {
 // ConsoleFiltersUpdate updates filter list.
 func (c *Console) FiltersUpdate(w http.ResponseWriter, r *http.Request) {
 	logger := c.logger.WithField("requestURI", r.RequestURI)
-	userID, err := session.GetInt(r, "userID")
-	if err != nil {
-		logger.WithError(err).Error("could not userID from session")
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-
-	logger = logger.WithField("userID", userID)
-
-	user, err := c.db.User(r.Context(), userID)
-	if err != nil {
-		logger.WithError(err).Error("could not get user")
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
+	user := userFromContext(r.Context())
 
 	user.FilterDefaultDiscard = r.FormValue("filterdefaultdiscard") == "true"
 
-	err = c.db.UserUpdate(r.Context(), user)
+	err := c.db.UserUpdate(r.Context(), user)
 	if err != nil {
 		logger.WithError(err).Error("could not update user")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -296,17 +277,9 @@ func (c *Console) FiltersUpdate(w http.ResponseWriter, r *http.Request) {
 // ConsoleFilter is a handler to view a single user's filter.
 func (c *Console) Filter(w http.ResponseWriter, r *http.Request) {
 	logger := c.logger.WithField("requestURI", r.RequestURI)
-	userID, err := session.GetInt(r, "userID")
-	if err != nil {
-		logger.WithError(err).Error("could not userID from session")
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
+	user := userFromContext(r.Context())
 
-	logger = logger.WithFields(logrus.Fields{
-		"userID":   userID,
-		"filterID": chi.URLParam(r, "filterID"),
-	})
+	logger = logger.WithField("filterID", chi.URLParam(r, "filterID"))
 
 	filterID, err := strconv.ParseInt(chi.URLParam(r, "filterID"), 10, 32)
 	if err != nil {
@@ -327,8 +300,8 @@ func (c *Console) Filter(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if filter.UserID != userID {
-		logger.Infof("filter user ID %d does not match session user ID %d", filter.UserID, userID)
+	if filter.UserID != user.ID {
+		logger.Infof("filter user ID %d does not match session user ID %d", filter.UserID, user.ID)
 		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return
 	}
@@ -344,17 +317,9 @@ func (c *Console) Filter(w http.ResponseWriter, r *http.Request) {
 // ConsoleConditionDelete deletes a condition.
 func (c *Console) ConditionDelete(w http.ResponseWriter, r *http.Request) {
 	logger := c.logger.WithField("requestURI", r.RequestURI)
-	userID, err := session.GetInt(r, "userID")
-	if err != nil {
-		logger.WithError(err).Error("could not userID from session")
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
+	user := userFromContext(r.Context())
 
-	logger = logger.WithFields(logrus.Fields{
-		"userID":      userID,
-		"conditionID": chi.URLParam(r, "conditionID"),
-	})
+	logger = logger.WithField("conditionID", chi.URLParam(r, "conditionID"))
 
 	conditionID, err := strconv.ParseInt(chi.URLParam(r, "conditionID"), 10, 32)
 	if err != nil {
@@ -363,7 +328,7 @@ func (c *Console) ConditionDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = c.db.ConditionDelete(r.Context(), userID, int(conditionID))
+	err = c.db.ConditionDelete(r.Context(), user.ID, int(conditionID))
 	if err != nil {
 		logger.WithError(err).Error("could not delete condition")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -376,18 +341,10 @@ func (c *Console) ConditionDelete(w http.ResponseWriter, r *http.Request) {
 // ConsoleConditionCreate deletes a condition.
 func (c *Console) ConditionCreate(w http.ResponseWriter, r *http.Request) {
 	logger := c.logger.WithField("requestURI", r.RequestURI)
-	userID, err := session.GetInt(r, "userID")
-	if err != nil {
-		logger.WithError(err).Error("could not userID from session")
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
+	user := userFromContext(r.Context())
 
 	r.ParseForm()
-	logger = logger.WithFields(logrus.Fields{
-		"userID":   userID,
-		"filterID": r.FormValue("filterID"),
-	})
+	logger = logger.WithField("filterID", r.FormValue("filterID"))
 
 	filterID, err := strconv.ParseInt(r.FormValue("filterID"), 10, 32)
 	if err != nil {
@@ -410,8 +367,8 @@ func (c *Console) ConditionCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if filter.UserID != userID {
-		logger.Infof("filter user ID %d does not match session user ID %d", filter.UserID, userID)
+	if filter.UserID != user.ID {
+		logger.Infof("filter user ID %d does not match session user ID %d", filter.UserID, user.ID)
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
@@ -453,17 +410,9 @@ func (c *Console) ConditionCreate(w http.ResponseWriter, r *http.Request) {
 // ConsoleFilterUpdate updates a filter.
 func (c *Console) FilterUpdate(w http.ResponseWriter, r *http.Request) {
 	logger := c.logger.WithField("requestURI", r.RequestURI)
-	userID, err := session.GetInt(r, "userID")
-	if err != nil {
-		logger.WithError(err).Error("could not userID from session")
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
+	user := userFromContext(r.Context())
 
-	logger = logger.WithFields(logrus.Fields{
-		"userID":   userID,
-		"filterID": chi.URLParam(r, "filterID"),
-	})
+	logger = logger.WithField("filterID", chi.URLParam(r, "filterID"))
 
 	filterID, err := strconv.ParseInt(chi.URLParam(r, "filterID"), 10, 32)
 	if err != nil {
@@ -484,8 +433,8 @@ func (c *Console) FilterUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if filter.UserID != userID {
-		logger.Infof("filter user ID %d does not match session user ID %d", filter.UserID, userID)
+	if filter.UserID != user.ID {
+		logger.Infof("filter user ID %d does not match session user ID %d", filter.UserID, user.ID)
 		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return
 	}
@@ -509,21 +458,7 @@ func (c *Console) FilterUpdate(w http.ResponseWriter, r *http.Request) {
 // Repos is a handler to view all user's repos
 func (c *Console) Repos(w http.ResponseWriter, r *http.Request) {
 	logger := c.logger.WithField("requestURI", r.RequestURI)
-	userID, err := session.GetInt(r, "userID")
-	if err != nil {
-		logger.WithError(err).Error("could not userID from session")
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-
-	logger = logger.WithField("userID", userID)
-
-	user, err := c.db.User(r.Context(), userID)
-	if err != nil {
-		logger.WithError(err).Error("could not get user")
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
+	user := userFromContext(r.Context())
 
 	client := c.githubClient(r.Context(), user.GitHubToken)
 
