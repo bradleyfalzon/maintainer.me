@@ -15,7 +15,6 @@ import (
 	"github.com/alexedwards/scs/session"
 	"github.com/bradleyfalzon/maintainer.me/db"
 	"github.com/bradleyfalzon/maintainer.me/events"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/go-chi/chi"
 	"github.com/google/go-github/github"
 	"github.com/google/uuid"
@@ -555,10 +554,9 @@ func (c *Console) Repos(w http.ResponseWriter, r *http.Request) {
 		repo.HealthPercentage = health.GetHealthPercentage()
 
 		if health.Files.CodeOfConduct.Key != nil && health.Files.CodeOfConduct.GetKey() != "none" {
-			spew.Dump(health.Files.CodeOfConduct)
 			repo.HasCoC = true
 		}
-		if health.Files.Contributing.Key != nil {
+		if health.Files.Contributing.URL != nil {
 			repo.HasContributing = true
 		}
 		if health.Files.License.Key != nil {
