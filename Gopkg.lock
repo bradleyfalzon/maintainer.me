@@ -4,8 +4,8 @@
 [[projects]]
   name = "github.com/Sirupsen/logrus"
   packages = ["."]
-  revision = "202f25545ea4cf9b191ff7f846df5d87c9382c2b"
-  version = "v1.0.0"
+  revision = "a3f95b5c423586578a4e099b11a46c2479628cac"
+  version = "1.0.2"
 
 [[projects]]
   branch = "master"
@@ -22,8 +22,8 @@
 [[projects]]
   name = "github.com/go-chi/chi"
   packages = [".","middleware"]
-  revision = "967844826e58cf31213a7dfb82455d242ad85101"
-  version = "v3.0.0"
+  revision = "12a98d329f12aac9e94b72c713437350c948a5e2"
+  version = "v3.1.1"
 
 [[projects]]
   name = "github.com/go-sql-driver/mysql"
@@ -35,7 +35,7 @@
   branch = "master"
   name = "github.com/golang/protobuf"
   packages = ["proto"]
-  revision = "6a1fa9404c0aebf36c879bc50152edcc953910d2"
+  revision = "0a4f71a498b7c4812f64969510bcb4eca251e33a"
 
 [[projects]]
   branch = "master"
@@ -47,7 +47,7 @@
   branch = "master"
   name = "github.com/google/go-github"
   packages = ["github"]
-  revision = "e062a8cd852f0fb981c8c9f837c214c4d1031870"
+  revision = "fb256a0e9b341e277520f4d811b6dc6e5d4aa481"
 
 [[projects]]
   branch = "master"
@@ -113,19 +113,19 @@
   branch = "master"
   name = "golang.org/x/net"
   packages = ["context","context/ctxhttp"]
-  revision = "1f9224279e98554b6a6432d4dd998a739f8b2b7c"
+  revision = "ab5485076ff3407ad2d02db054635913f017b0ed"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/oauth2"
   packages = [".","github","internal"]
-  revision = "cce311a261e6fcf29de72ca96827bdb0b7d9c9e6"
+  revision = "b53b38ad8a6435bd399ea76d0fa74f23149cca4e"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "739734461d1c916b6c72a63d7efda2b27edb369f"
+  revision = "c4489faa6e5ab84c0ef40d6ee878f7a030281f0f"
 
 [[projects]]
   name = "google.golang.org/appengine"
